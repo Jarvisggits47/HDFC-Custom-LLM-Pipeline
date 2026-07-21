@@ -1,0 +1,16 @@
+services:
+  control-plane:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - pipeline-data:/srv/data
+      - hf-cache:/root/.cache/huggingface
+    environment:
+      - PIPELINE_DB_PATH=/srv/data/pipeline.db
+      - RETRIEVER_DIR=/srv/data/runs
+      - LOCAL_MODEL=HuggingFaceTB/SmolLM2-360M-Instruct
+
+volumes:
+  pipeline-data:
+  hf-cache:

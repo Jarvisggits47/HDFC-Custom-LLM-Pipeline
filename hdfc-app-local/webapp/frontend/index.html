@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HDFC custom LLM pipeline — control plane</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div id="key-banner" class="key-banner" style="display:none">
+  <i data-lucide="alert-triangle"></i>
+  <span>Local model could not be loaded — check your internet connection (needed once, to download it).</span>
+</div>
+
+<div class="app-shell">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">H</div>
+      <div>
+        <div class="brand-title">HDFC Bank</div>
+        <div class="brand-subtitle">Custom LLM Pipeline</div>
+      </div>
+    </div>
+
+    <nav id="tabs">
+      <button data-tab="overview" class="active"><i data-lucide="layout-dashboard"></i> Overview</button>
+      <button data-tab="datasets"><i data-lucide="database"></i> Datasets</button>
+      <button data-tab="runs"><i data-lucide="cpu"></i> Adaptation runs</button>
+      <button data-tab="evaluations"><i data-lucide="shield-check"></i> Evaluation gate</button>
+      <button data-tab="registry"><i data-lucide="library"></i> Model registry</button>
+      <button data-tab="deployments"><i data-lucide="rocket"></i> Deployments</button>
+      <button data-tab="playground"><i data-lucide="message-square"></i> Playground</button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="status-dot-row">
+        <span id="api-dot" class="status-dot"></span>
+        <span id="api-status-text">Checking API key…</span>
+      </div>
+    </div>
+  </aside>
+
+  <main>
+
+    <section id="overview" class="tab active">
+      <div class="page-head">
+        <h1>Pipeline overview</h1>
+        <p>Live status across every stage of the release control plane.</p>
+      </div>
+      <div id="stat-grid" class="stat-grid"></div>
+      <div class="card explainer">
+        <h3><i data-lucide="info"></i> How this works</h3>
+        <p>This app runs a <strong>real, free, local open-weights model</strong> — no API key, no per-token cost, nothing leaves your machine. Upload a policy PDF (or paste text) and it's chunked and scanned for PII before storage. "Adaptation" builds a small phrasing-style system prompt plus a real TF-IDF search index over your documents — the same kind of vector-search approach production RAG systems use, just running locally instead of on a hosted vector database. Every playground question triggers <strong>live retrieval</strong> — the top-matching chunks for that exact question are pulled fresh and injected into the prompt, not dumped statically. The evaluation gate calls the local model twice per test case — once with no banking context, once through your adapter — and scores the actual generated text.</p>
+      </div>
+    </section>
+
+    <section id="datasets" class="tab">
+      <div class="page-head">
+        <h1>Dataset governance</h1>
+        <p>Register a source, review its records, and approve an immutable version before it can be used in a run.</p>
+      </div>
+      <form id="dataset-form" class="card form-card">
+        <div class="form-row">
+          <input name="name" placeholder="Dataset name" required>
+          <input name="source" placeholder="Source" required>
+        </div>
+        <div class="form-row">
+          <input name="purpose" placeholder="Approved purpose" required>
+          <select name="classification">
+            <option value="internal">internal</option>
+            <option value="restricted">restricted</option>
+            <option value="public">public</option>
+          </select>
+        </div>
+        <label class="field-label">Task records (JSON array) — optional if you're only uploading documents</label>
+        <textarea name="records" id="records-textarea" rows="6">[]</textarea>
+        <div class="actions-row">
+          <button type="button" id="load-sample" class="btn-secondary"><i data-lucide="sparkles"></i> Load sample banking dataset</button>
+          <button type="submit" class="btn-primary"><i data-lucide="plus"></i> Register dataset</button>
+        </div>
+      </form>
+
+      <div class="card form-card">
+        <label class="field-label">Add a policy document to an existing dataset</label>
+        <div class="form-row">
+          <select id="upload-dataset-select"></select>
+        </div>
+        <div class="form-row">
+          <input type="file" id="pdf-file-input" accept=".pdf">
+          <button type="button" id="upload-pdf-btn" class="btn-secondary"><i data-lucide="file-up"></i> Upload PDF</button>
+        </div>
+        <label class="field-label">— or paste policy text directly —</label>
+        <div class="form-row">
+          <input id="paste-filename" placeholder="Document name, e.g. loan_policy.txt">
+        </div>
+        <textarea id="paste-text" rows="4" placeholder="Paste raw policy text here. It will be automatically chunked and scanned for PII before storage."></textarea>
+        <div class="actions-row">
+          <button type="button" id="upload-text-btn" class="btn-secondary"><i data-lucide="file-plus"></i> Add document</button>
+        </div>
+        <div id="upload-result" class="hint"></div>
+      </div>
+      <div id="dataset-list" class="list"></div>
+    </section>
+
+    <section id="runs" class="tab">
+      <div class="page-head">
+        <h1>Adaptation runs</h1>
+        <p>Builds a grounded system-prompt adapter from an approved dataset. Real, live process — not simulated.</p>
+      </div>
+      <form id="run-form" class="card form-card">
+        <div class="form-row">
+          <input name="name" placeholder="Run name" required>
+          <select name="serving_model">
+            <option value="Qwen/Qwen2.5-1.5B-Instruct" selected>Qwen2.5-1.5B-Instruct (recommended default — good grounding, moderate speed)</option>
+            <option value="HuggingFaceTB/SmolLM2-360M-Instruct">SmolLM2-360M-Instruct (fastest, lower quality)</option>
+            <option value="Qwen/Qwen2.5-3B-Instruct">Qwen2.5-3B-Instruct (best quality, slowest — needs more RAM/CPU time)</option>
+            <option value="microsoft/Phi-3.5-mini-instruct">Phi-3.5-mini-instruct (~3.8B, strong instruction-following, slow on CPU)</option>
+          </select>
+        </div>
+        <select name="dataset_id" id="run-dataset-select" required></select>
+        <div class="actions-row">
+          <button type="submit" class="btn-primary"><i data-lucide="play"></i> Build adapter</button>
+        </div>
+      </form>
+      <div id="run-list" class="list"></div>
+    </section>
+
+    <section id="evaluations" class="tab">
+      <div class="page-head">
+        <h1>Evaluation &amp; release gate</h1>
+        <p>Calls the live model with and without your adapter for each banking test case, and blocks release on any critical failure.</p>
+      </div>
+      <form id="eval-form" class="card form-card">
+        <select name="run_id" id="eval-run-select" required></select>
+        <div class="actions-row">
+          <button type="submit" class="btn-primary"><i data-lucide="shield-check"></i> Run evaluation gate</button>
+        </div>
+      </form>
+      <div id="eval-list" class="list"></div>
+    </section>
+
+    <section id="registry" class="tab">
+      <div class="page-head">
+        <h1>Model registry</h1>
+        <p>Signed, versioned entries linking each release to its adapter, evaluation evidence, and owner.</p>
+      </div>
+      <form id="registry-form" class="card form-card">
+        <div class="form-row">
+          <select name="evaluation_id" id="registry-eval-select" required></select>
+          <input name="owner" placeholder="Operational owner">
+        </div>
+        <div class="actions-row">
+          <button type="submit" class="btn-primary"><i data-lucide="library"></i> Register model</button>
+        </div>
+      </form>
+      <div id="registry-list" class="list"></div>
+    </section>
+
+    <section id="deployments" class="tab">
+      <div class="page-head">
+        <h1>Deployment control plane</h1>
+        <p>Canary traffic, expansion, and rollback for promoted models.</p>
+      </div>
+      <div id="deployment-list" class="list"></div>
+    </section>
+
+    <section id="playground" class="tab">
+      <div class="page-head">
+        <h1>Integration playground</h1>
+        <p>Send a real prompt to a live deployment, or to the base model with no banking context, and compare.</p>
+      </div>
+      <form id="infer-form" class="card form-card">
+        <select name="deployment_id" id="infer-deployment-select">
+          <option value="">Base model — no deployment, no banking context</option>
+        </select>
+        <textarea name="prompt" rows="3" placeholder="e.g. Can you guarantee returns on this fund?" required></textarea>
+        <div class="actions-row">
+          <button type="submit" class="btn-primary"><i data-lucide="send"></i> Send</button>
+        </div>
+      </form>
+      <div id="infer-result" class="card result-card" style="display:none"></div>
+      <div id="infer-history" class="list"></div>
+    </section>
+
+  </main>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

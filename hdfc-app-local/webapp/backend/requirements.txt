@@ -1,0 +1,12 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+sqlalchemy>=2.0
+pydantic>=2.6
+scikit-learn>=1.4
+numpy>=1.26
+pypdf>=5.0
+python-multipart>=0.0.9
+torch>=2.2
+transformers>=4.45
+accelerate>=0.34
+sentence-transformers>=3.0

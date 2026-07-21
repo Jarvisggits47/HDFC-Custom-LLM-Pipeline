@@ -1,0 +1,26 @@
+# Pinned LoRA run configuration — every field here must be recorded in the
+# run manifest so the release is reproducible (see docs/model-risk).
+run_id: adapter-v0
+base_model: TinyLlama/TinyLlama-1.1B-Chat-v1.0
+base_model_digest: null   # fill in with the resolved model revision hash before a real run
+dataset: data/synthetic/banking_instructions.jsonl
+dataset_version_hash: null  # fill in with a content hash once the dataset is frozen
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules: ["q_proj", "v_proj"]
+  bias: "none"
+  task_type: "CAUSAL_LM"
+
+training:
+  learning_rate: 2.0e-4
+  epochs: 3
+  batch_size: 4
+  gradient_accumulation_steps: 4
+  max_seq_length: 512
+  precision: "bf16"
+  seed: 42
+
+hardware_profile: "single-gpu-24gb"

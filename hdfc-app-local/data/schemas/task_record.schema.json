@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BankingTaskRecord",
+  "type": "object",
+  "required": ["id", "task_type", "instruction", "response"],
+  "properties": {
+    "id": { "type": "string", "description": "Stable record identifier" },
+    "task_type": {
+      "type": "string",
+      "enum": [
+        "terminology_normalization",
+        "intent_classification",
+        "response_drafting",
+        "procedural_summarization",
+        "grounded_question_answering"
+      ]
+    },
+    "instruction": { "type": "string" },
+    "context": {
+      "type": "array",
+      "description": "Retrieved/authoritative context snippets, if any",
+      "items": {
+        "type": "object",
+        "properties": {
+          "doc_id": { "type": "string" },
+          "effective_date": { "type": "string", "format": "date" },
+          "text": { "type": "string" }
+        },
+        "required": ["doc_id", "text"]
+      }
+    },
+    "response": { "type": "string" },
+    "citations": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "refusal_required": { "type": "boolean", "default": false },
+    "escalation_required": { "type": "boolean", "default": false },
+    "source": {
+      "type": "string",
+      "description": "Origin dataset/document identity for lineage"
+    },
+    "split": { "type": "string", "enum": ["train", "validation", "test"] }
+  }
+}
