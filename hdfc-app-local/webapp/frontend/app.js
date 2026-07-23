@@ -104,15 +104,46 @@ async function checkHealth() {
     const dot = document.getElementById("api-dot");
     const text = document.getElementById("api-status-text");
     const banner = document.getElementById("key-banner");
-    if (!h.load_error) {
+    const note = document.getElementById("serving-model-note");
+
+    if (h.status === "ready") {
       dot.className = "status-dot ok";
       text.textContent = `Local model ready — ${h.model}`;
       banner.style.display = "none";
+      if (note) {
+        note.textContent = `CPU inference — ${h.model}. Expect a few seconds per response.`;
+        note.style.color = "var(--muted, #6b7280)";
+      }
+    } else if (h.status === "loading") {
+      dot.className = "status-dot warn";
+      text.textContent = "Model loading… (first startup downloads from Hugging Face — may take a minute)";
+      banner.style.display = "none";
+      if (note) {
+        note.textContent = "Model is still loading. First inference will be slow until warm-up finishes.";
+        note.style.color = "var(--muted, #6b7280)";
+      }
     } else {
       dot.className = "status-dot bad";
-      text.textContent = "Local model not loaded yet";
-      banner.querySelector("span").textContent = h.load_error;
-      banner.style.display = "flex";
+      text.textContent = "Model failed to load — check server logs";
+      if (h.load_error) {
+        banner.querySelector("span").textContent = h.load_error;
+        banner.style.display = "flex";
+      }
+      if (note) note.textContent = "";
+    }
+
+    // Pre-select the configured model in the run dropdown.
+    if (h.model) {
+      const sel = document.getElementById("serving-model-select");
+      if (sel) {
+        const match = [...sel.options].find(o => o.value === h.model);
+        if (match) {
+          sel.value = h.model;
+        } else {
+          const opt = new Option(`${h.model} (server default)`, h.model, true, true);
+          sel.add(opt, 0);
+        }
+      }
     }
   } catch (e) { /* ignore */ }
 }
@@ -190,7 +221,8 @@ document.getElementById("upload-pdf-btn").addEventListener("click", async () => 
     const res = await fetch(`${API}/datasets/${dsId}/upload-pdf`, { method: "POST", body: fd });
     if (!res.ok) { const d = await res.json(); throw new Error(d.detail || res.statusText); }
     const data = await res.json();
-    resultBox.textContent = `Indexed ${data.filename}: ${data.chunks_created} chunks created${data.pii_redacted ? " (PII found and redacted)" : ""}.`;
+    const dupNote = data.duplicate_chunks_skipped ? ` · ${data.duplicate_chunks_skipped} duplicate chunks skipped` : "";
+    resultBox.textContent = `Indexed ${data.filename}: ${data.chunks_created} chunks created${dupNote}${data.pii_redacted ? " (PII found and redacted)" : ""}.`;
     fileInput.value = "";
     refreshAll();
   } catch (err) {
@@ -293,20 +325,24 @@ let evalPollHandle = null;
 async function renderEvaluations() {
   const evals = await api("/evaluations");
   const list = document.getElementById("eval-list");
-  list.innerHTML = evals.length ? "" : "<p class='hint'>No evaluations run yet. Each one makes 10 real model calls (5 cases × base/adapted) — takes a bit.</p>";
+  list.innerHTML = evals.length ? "" : "<p class='hint'>No evaluations run yet. Each one makes 10 real model calls (5 cases × base/adapted) — takes a few minutes on CPU.</p>";
   evals.forEach((ev) => {
     const gateBadge = ev.status !== "completed" ? "neutral" : (ev.gate_pass ? "ok" : "bad");
     const gateLabel = ev.status === "running" ? `<span class="spinner"></span>running (${ev.progress}%)`
       : ev.status === "queued" ? "queued"
       : ev.status === "failed" ? "failed"
       : (ev.gate_pass ? "gate: pass" : "gate: blocked");
-    const cases = ev.results.adapted_model_results || [];
+    const results = ev.results || {};
+    const cases = results.adapted_model_results || [];
     const div = document.createElement("div");
     div.className = "item";
     div.innerHTML = `
       <div class="item-title">Evaluation ${ev.id} <span class="badge ${gateBadge}">${gateLabel}</span></div>
-      <div class="item-meta">run ${ev.run_id}${ev.results.adapted_pass_rate ? " · adapted: " + ev.results.adapted_pass_rate + " · base: " + ev.results.base_pass_rate : ""}</div>
-      ${ev.status === "running" ? `<div class="progress-bar"><div class="progress-bar-fill" style="width:${ev.progress}%"></div></div>` : ""}
+      <div class="item-meta">run ${ev.run_id}${results.adapted_pass_rate ? " · adapted: " + results.adapted_pass_rate + " · base: " + results.base_pass_rate : ""}</div>
+      ${ev.status === "running" ? `
+        <div class="progress-bar"><div class="progress-bar-fill" style="width:${ev.progress}%"></div></div>
+        <div class="actions"><button data-cancel-eval="${ev.id}" style="background:#dc2626;color:#fff;border-color:#dc2626">Cancel evaluation</button></div>
+      ` : ""}
       ${ev.error ? `<div class="item-detail" style="color:var(--danger)">${esc(ev.error)}</div>` : ""}
       ${cases.map(c => `
         <div class="case-row">
@@ -318,6 +354,15 @@ async function renderEvaluations() {
     `;
     list.appendChild(div);
   });
+
+  list.querySelectorAll("[data-cancel-eval]").forEach((b) =>
+    b.addEventListener("click", async () => {
+      if (!confirm("Cancel this evaluation? It cannot be resumed.")) return;
+      try { await api(`/evaluations/${b.dataset.cancelEval}/cancel`, { method: "POST" }); }
+      catch (err) { alert(err.message); }
+      refreshAll();
+    })
+  );
 
   const sel = document.getElementById("registry-eval-select");
   const completed = evals.filter((e) => e.status === "completed");

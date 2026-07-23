@@ -44,6 +44,7 @@ class DocumentChunk(Base):
     chunk_index = Column(Integer, default=0)
     page = Column(Integer, default=1)
     text = Column(String, nullable=False)
+    content_hash = Column(String, nullable=True, index=True)  # sha256[:32] of chunk text for dedup
     pii_redacted = Column(Boolean, default=False)
     created_at = Column(DateTime, default=now)
 

@@ -2,9 +2,17 @@ import os
 import time
 import uuid
 from datetime import datetime, timedelta
+from pathlib import Path
+
+# Load .env from the webapp directory (two levels up from this file)
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).parent.parent.parent / ".env")
 
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text as _sql
 from sqlalchemy.orm import Session
 
 from . import models, schemas, local_llm, document_prep
@@ -13,6 +21,54 @@ from .database import Base, engine, SessionLocal, get_db
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="HDFC custom LLM pipeline — control plane")
+
+# CORS — required for separately-deployed frontends; defaults to open for local dev.
+_cors_origins = [o.strip() for o in os.environ.get("FRONTEND_ORIGIN", "*").split(",") if o.strip()]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins,
+    allow_credentials=(_cors_origins != ["*"]),  # credentials not valid with wildcard origin
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.on_event("startup")
+def on_startup():
+    """On every server start:
+    1. Schema migration: add content_hash column to document_chunks if missing
+       (SQLite ALTER TABLE is safe to run on existing DBs — ignored if present).
+    2. Mark any runs/evals that were mid-flight when the server last stopped
+       as failed — their background threads died with the process and will
+       never finish. This prevents them from being stuck in "building" forever.
+    3. Kick off a background model preload so the first inference or eval
+       call doesn't block on a cold model load.
+    """
+    with engine.connect() as conn:
+        try:
+            conn.execute(_sql("ALTER TABLE document_chunks ADD COLUMN content_hash VARCHAR"))
+            conn.commit()
+        except Exception:
+            pass  # column already exists — safe to ignore
+
+    db = SessionLocal()
+    try:
+        stale_runs = db.query(models.Run).filter(
+            models.Run.status.in_(["building", "queued"])
+        ).all()
+        for run in stale_runs:
+            run.status = "failed"
+            run.error = "Server restarted while this build was in progress — re-trigger the run."
+        stale_evals = db.query(models.Evaluation).filter(
+            models.Evaluation.status.in_(["running", "queued"])
+        ).all()
+        for ev in stale_evals:
+            ev.status = "failed"
+            ev.error = "Server restarted while this evaluation was in progress — re-trigger the evaluation."
+        db.commit()
+    finally:
+        db.close()
+    local_llm.preload_models_background()
 
 
 def new_id(prefix: str) -> str:
@@ -29,10 +85,33 @@ def dataset_chunk_count(db: Session, dataset_id: str) -> int:
 
 def ingest_pages(db: Session, dataset_id: str, filename: str, pages: list[tuple[int, str]]) -> dict:
     """Page-aware ingestion: PII redaction + semantic (sentence-boundary
-    aware) chunking, keeping the page number of each chunk for citations."""
+    aware) chunking, keeping the page number of each chunk for citations.
+    Skips chunks whose content_hash already exists in this dataset (dedup).
+    Raises HTTPException 422 when the document has text but zero usable chunks."""
     _, pii_found_any = document_prep.redact_pii("\n".join(t for _, t in pages))
     chunk_dicts = document_prep.chunk_pages(pages)
+
+    has_text = any(t.strip() for _, t in pages)
+    if not chunk_dicts and has_text:
+        raise HTTPException(
+            422,
+            "document extracted but produced no usable text chunks — "
+            "check if it is a scanned/image-only PDF (needs OCR), "
+            "or if the text is too short/garbled to pass quality filters.",
+        )
+
+    created = 0
+    skipped = 0
     for c in chunk_dicts:
+        content_hash = c.get("content_hash")
+        if content_hash:
+            exists = db.query(models.DocumentChunk).filter(
+                models.DocumentChunk.dataset_id == dataset_id,
+                models.DocumentChunk.content_hash == content_hash,
+            ).first()
+            if exists:
+                skipped += 1
+                continue
         db.add(models.DocumentChunk(
             id=new_id("chunk"),
             dataset_id=dataset_id,
@@ -40,10 +119,17 @@ def ingest_pages(db: Session, dataset_id: str, filename: str, pages: list[tuple[
             chunk_index=c["chunk_index"],
             page=c["page"],
             text=c["text"],
+            content_hash=content_hash,
             pii_redacted=pii_found_any,
         ))
+        created += 1
     db.commit()
-    return {"filename": filename, "chunks_created": len(chunk_dicts), "pii_redacted": pii_found_any}
+    return {
+        "filename": filename,
+        "chunks_created": created,
+        "duplicate_chunks_skipped": skipped,
+        "pii_redacted": pii_found_any,
+    }
 
 
 def ingest_document(db: Session, dataset_id: str, filename: str, raw_text: str) -> dict:
@@ -103,16 +189,20 @@ async def upload_pdf(dataset_id: str, file: UploadFile = File(...), db: Session 
         raise HTTPException(404, "dataset not found")
     if ds.status == "approved":
         raise HTTPException(400, "dataset is already approved and frozen — register a new dataset for updated documents")
-    if not file.filename.lower().endswith(".pdf"):
-        raise HTTPException(400, "only .pdf files are accepted here — use /upload-text for pasted text")
+    fname_lower = file.filename.lower()
+    if not (fname_lower.endswith(".pdf") or fname_lower.endswith(".docx")):
+        raise HTTPException(400, "only .pdf and .docx files are accepted here — use /upload-text for pasted text")
 
     file_bytes = await file.read()
     try:
-        pages = document_prep.extract_pdf_pages(file_bytes)
+        if fname_lower.endswith(".docx"):
+            pages = document_prep.extract_docx_pages(file_bytes)
+        else:
+            pages = document_prep.extract_pdf_pages(file_bytes)
     except Exception as e:
-        raise HTTPException(400, f"could not read PDF: {e}")
+        raise HTTPException(400, f"could not read document: {e}")
     if not any(t.strip() for _, t in pages):
-        raise HTTPException(400, "no extractable text found in this PDF (it may be scanned/image-only)")
+        raise HTTPException(400, "no extractable text found in this document (PDF may be scanned/image-only, or DOCX is empty)")
 
     result = ingest_pages(db, dataset_id, file.filename, pages)
     return result
@@ -195,6 +285,20 @@ def get_run(run_id: str, db: Session = Depends(get_db)):
     return run
 
 
+@app.post("/api/runs/{run_id}/cancel")
+def cancel_run(run_id: str, db: Session = Depends(get_db)):
+    run = db.query(models.Run).filter(models.Run.id == run_id).first()
+    if not run:
+        raise HTTPException(404, "run not found")
+    if run.status not in ("building", "queued"):
+        raise HTTPException(400, f"run is already {run.status} — nothing to cancel")
+    local_llm.cancel_build(run_id)
+    run.status = "failed"
+    run.error = "Cancelled by user."
+    db.commit()
+    return {"cancelled": True, "run_id": run_id}
+
+
 # ------------------------------------------------------------- evaluations
 @app.post("/api/evaluations", response_model=schemas.EvaluationOut)
 def create_evaluation(payload: schemas.EvaluationCreate, db: Session = Depends(get_db)):
@@ -223,6 +327,20 @@ def get_evaluation(evaluation_id: str, db: Session = Depends(get_db)):
     if not ev:
         raise HTTPException(404, "evaluation not found")
     return ev
+
+
+@app.post("/api/evaluations/{evaluation_id}/cancel")
+def cancel_evaluation(evaluation_id: str, db: Session = Depends(get_db)):
+    ev = db.query(models.Evaluation).filter(models.Evaluation.id == evaluation_id).first()
+    if not ev:
+        raise HTTPException(404, "evaluation not found")
+    if ev.status not in ("running", "queued"):
+        raise HTTPException(400, f"evaluation is already {ev.status} — nothing to cancel")
+    local_llm.cancel_evaluation(evaluation_id)
+    ev.status = "failed"
+    ev.error = "Cancelled by user."
+    db.commit()
+    return {"cancelled": True, "evaluation_id": evaluation_id}
 
 
 # ------------------------------------------------------------------ registry
@@ -353,17 +471,28 @@ def infer(payload: schemas.InferenceRequest, db: Session = Depends(get_db)):
                 raise HTTPException(400, "deployment has been rolled back")
             entry = db.query(models.ModelRegistryEntry).filter(models.ModelRegistryEntry.id == dep.model_id).first()
             run = db.query(models.Run).filter(models.Run.id == entry.run_id).first()
-            served_by = f"{dep.endpoint_name} ({dep.status}, {dep.traffic_pct}% traffic, adapter {run.adapter_hash})"
             out = local_llm.call_adapted_model(run, payload.prompt)
             answer = out["answer"]
+            provider = out.get("provider", "unknown")
+            served_by = (f"{dep.endpoint_name} ({dep.status}, {dep.traffic_pct}% traffic, "
+                         f"adapter {run.adapter_hash}) via {provider}")
             retrieved_chunks = out["retrieved_chunks"]
             sources = out["sources"]
             citations = out["citations"]
             confidence = out["confidence"]
         else:
-            answer = local_llm.call_model(local_llm.DEFAULT_MODEL, local_llm.GENERIC_SYSTEM_PROMPT, payload.prompt)
+            answer, provider = local_llm.call_model(
+                local_llm.DEFAULT_MODEL, local_llm.GENERIC_SYSTEM_PROMPT, payload.prompt
+            )
+            served_by = f"base model via {provider}"
     except HTTPException:
         raise
+    except local_llm.ModelBusyError:
+        return JSONResponse(
+            {"error": "Model busy. Please retry in a few seconds."},
+            status_code=503,
+            headers={"Retry-After": "10"},
+        )
     except Exception as e:
         raise HTTPException(502, f"model call failed: {e}")
     latency_ms = int((time.time() - start) * 1000)
@@ -420,7 +549,7 @@ def monitoring(db: Session = Depends(get_db)):
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", **local_llm.model_status()}
+    return local_llm.model_status()
 
 
 # ---------------------------------------------------------------- frontend

@@ -43,7 +43,7 @@ class DatasetOut(BaseModel):
 
 class RunCreate(BaseModel):
     name: str
-    serving_model: str = "Qwen/Qwen2.5-1.5B-Instruct"
+    serving_model: str = "Qwen/Qwen2.5-0.5B-Instruct"
     embedding_model: str = "BAAI/bge-small-en-v1.5"
     dataset_id: str
 
@@ -56,11 +56,11 @@ class RunOut(BaseModel):
     dataset_id: str
     status: str
     progress: int
-    build_steps: List[Dict[str, Any]]
-    adapter_hash: Optional[str]
-    record_count_used: int
+    build_steps: List[Dict[str, Any]] = []
+    adapter_hash: Optional[str] = None
+    record_count_used: int = 0
     chunk_count_used: int = 0
-    error: Optional[str]
+    error: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -75,10 +75,10 @@ class EvaluationOut(BaseModel):
     run_id: str
     status: str
     progress: int
-    results: Dict[str, Any]
-    gate_pass: Optional[bool]
-    critical_failures: List[str]
-    error: Optional[str]
+    results: Dict[str, Any] = {}
+    gate_pass: Optional[bool] = None
+    critical_failures: List[str] = []
+    error: Optional[str] = None
 
     class Config:
         from_attributes = True

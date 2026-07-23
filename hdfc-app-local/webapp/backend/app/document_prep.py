@@ -8,6 +8,7 @@ end on a real sentence boundary (never cut a fact in half), and PDF
 extraction keeps page numbers so citations can point to a real page, not
 just a filename.
 """
+import hashlib
 import re
 
 # Deliberately conservative patterns — false positives (over-redacting) are
@@ -51,10 +52,39 @@ def extract_pdf_text(file_bytes: bytes) -> str:
     return "\n".join(t for _, t in extract_pdf_pages(file_bytes))
 
 
+def extract_docx_pages(file_bytes: bytes) -> list[tuple[int, str]]:
+    """Extract text from a .docx file. DOCX has no formal page structure in
+    its XML, so the whole document is returned as a single page-1 block.
+    Falls back to a clear error if python-docx is not installed."""
+    try:
+        from docx import Document
+    except ImportError:
+        raise RuntimeError(
+            "python-docx is not installed — run: pip install python-docx"
+        )
+    import io
+    doc = Document(io.BytesIO(file_bytes))
+    # Include table cells as well as body paragraphs so tabular policy data
+    # isn't silently dropped.
+    parts: list[str] = []
+    for para in doc.paragraphs:
+        if para.text.strip():
+            parts.append(para.text)
+    for table in doc.tables:
+        for row in table.rows:
+            row_text = "  ".join(cell.text.strip() for cell in row.cells if cell.text.strip())
+            if row_text:
+                parts.append(row_text)
+    return [(1, "\n".join(parts))]
+
+
 # ----------------------------------------------------------------- chunking
 _CLEAN_RE = re.compile(r"[^\x09\x0A\x0D\x20-\x7E]")
 _WS_RE = re.compile(r"[ \t]+")
 _SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+(?=[A-Z0-9])")
+
+# Matches "4.1 Introduction", "2.3.1 Eligibility" — numbered section headings.
+_SECTION_NUM_RE = re.compile(r"^\d+(?:\.\d+)+\.?\s+[A-Z]")
 
 
 def _clean_text(text: str) -> str:
@@ -112,16 +142,60 @@ def is_probably_real_text(chunk: str, min_alpha_ratio: float = 0.55, min_words: 
     return True
 
 
+def _is_structural_header(chunk: str) -> bool:
+    """Returns True for short (≤15-word) chunks that are document structural
+    headings — chapter/section labels, numbered-section titles, TOC entries.
+    These chunks reach the retriever but add noise without useful policy content
+    (e.g. 'Chapter 4 Current Accounts 4.1 Introduction').
+
+    Three signals, in order of specificity:
+      1. Starts with a section keyword + number: 'Chapter 4', 'Section 2.1'
+      2. Starts with a dotted-section number:    '4.1 Introduction'
+      3. Short line, ≥80 % Title-Case/numeric words, no sentence-ending punctuation
+    """
+    words = chunk.split()
+    if not words or len(words) > 15:
+        return False
+    stripped = chunk.strip()
+
+    # Signal 1 — explicit label: "Chapter 4 ...", "Section 2.1 ...", "Appendix A ..."
+    if re.match(
+        r"^(?:chapter|section|part|article|appendix|clause|schedule)\s+[\dA-Z]",
+        stripped,
+        re.IGNORECASE,
+    ):
+        return True
+
+    # Signal 2 — numbered section heading: "4.1 Introduction", "2.3.1 Eligibility"
+    if _SECTION_NUM_RE.match(stripped):
+        return True
+
+    # Signal 3 — high Title-Case ratio, no terminal punctuation.
+    # ≥80 % threshold avoids filtering legitimate short factual sentences that
+    # start with a capital (e.g. "The minimum balance is Rs 10,000 per month").
+    title_or_num = sum(1 for w in words if w and (w[0].isupper() or w[0].isdigit()))
+    if len(words) <= 12 and title_or_num / len(words) >= 0.80 and stripped[-1:] not in ".!?":
+        return True
+
+    return False
+
+
+def _chunk_hash(text: str) -> str:
+    return hashlib.sha256(text.encode()).hexdigest()[:32]
+
+
 def chunk_pages(pages: list[tuple[int, str]]) -> list[dict]:
     """Turns [(page_num, text), ...] into a flat list of chunk dicts:
-    {text, page, chunk_index}. Drops garbage/near-empty chunks."""
+    {text, page, chunk_index, content_hash}. Drops garbage/near-empty chunks
+    and structural heading lines (chapter/section headers add retrieval noise)."""
     out = []
     idx = 0
     for page_num, page_text in pages:
         redacted_text, _ = redact_pii(page_text)
         for c in semantic_chunk_page(redacted_text):
-            if is_probably_real_text(c):
-                out.append({"text": c, "page": page_num, "chunk_index": idx})
+            if is_probably_real_text(c) and not _is_structural_header(c):
+                out.append({"text": c, "page": page_num, "chunk_index": idx,
+                             "content_hash": _chunk_hash(c)})
                 idx += 1
     return out
 
@@ -132,6 +206,7 @@ def chunk_text(text: str) -> list[dict]:
     redacted_text, _ = redact_pii(text)
     out = []
     for i, c in enumerate(semantic_chunk_page(redacted_text)):
-        if is_probably_real_text(c):
-            out.append({"text": c, "page": 1, "chunk_index": i})
+        if is_probably_real_text(c) and not _is_structural_header(c):
+            out.append({"text": c, "page": 1, "chunk_index": i,
+                        "content_hash": _chunk_hash(c)})
     return out

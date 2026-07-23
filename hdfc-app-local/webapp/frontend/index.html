@@ -91,7 +91,7 @@
           <select id="upload-dataset-select"></select>
         </div>
         <div class="form-row">
-          <input type="file" id="pdf-file-input" accept=".pdf">
+          <input type="file" id="pdf-file-input" accept=".pdf,.docx">
           <button type="button" id="upload-pdf-btn" class="btn-secondary"><i data-lucide="file-up"></i> Upload PDF</button>
         </div>
         <label class="field-label">— or paste policy text directly —</label>
@@ -115,12 +115,12 @@
       <form id="run-form" class="card form-card">
         <div class="form-row">
           <input name="name" placeholder="Run name" required>
-          <select name="serving_model">
-            <option value="Qwen/Qwen2.5-1.5B-Instruct" selected>Qwen2.5-1.5B-Instruct (recommended default — good grounding, moderate speed)</option>
-            <option value="HuggingFaceTB/SmolLM2-360M-Instruct">SmolLM2-360M-Instruct (fastest, lower quality)</option>
-            <option value="Qwen/Qwen2.5-3B-Instruct">Qwen2.5-3B-Instruct (best quality, slowest — needs more RAM/CPU time)</option>
-            <option value="microsoft/Phi-3.5-mini-instruct">Phi-3.5-mini-instruct (~3.8B, strong instruction-following, slow on CPU)</option>
+          <select name="serving_model" id="serving-model-select">
+            <option value="HuggingFaceTB/SmolLM2-360M-Instruct">SmolLM2-360M-Instruct (default — fast CPU inference)</option>
+            <option value="Qwen/Qwen2.5-0.5B-Instruct">Qwen2.5-0.5B-Instruct (better grounding, slower)</option>
+            <option value="Qwen/Qwen2.5-1.5B-Instruct">Qwen2.5-1.5B-Instruct (best grounding, slowest)</option>
           </select>
+          <p class="hint" id="serving-model-note" style="margin-top:4px"></p>
         </div>
         <select name="dataset_id" id="run-dataset-select" required></select>
         <div class="actions-row">
