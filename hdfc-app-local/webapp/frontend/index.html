@@ -1,11 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>HDFC custom LLM pipeline — control plane</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<title>HDFC Bank — Enterprise AI Factory</title>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -13,182 +11,409 @@
 
 <div id="key-banner" class="key-banner" style="display:none">
   <i data-lucide="alert-triangle"></i>
-  <span>Local model could not be loaded — check your internet connection (needed once, to download it).</span>
+  <span>Local model could not be loaded — check server logs.</span>
 </div>
 
 <div class="app-shell">
 
+  <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="brand">
       <div class="brand-mark">H</div>
       <div>
         <div class="brand-title">HDFC Bank</div>
-        <div class="brand-subtitle">Custom LLM Pipeline</div>
+        <div class="brand-subtitle">Enterprise AI Factory</div>
       </div>
     </div>
 
-    <nav id="tabs">
-      <button data-tab="overview" class="active"><i data-lucide="layout-dashboard"></i> Overview</button>
-      <button data-tab="datasets"><i data-lucide="database"></i> Datasets</button>
-      <button data-tab="runs"><i data-lucide="cpu"></i> Adaptation runs</button>
-      <button data-tab="evaluations"><i data-lucide="shield-check"></i> Evaluation gate</button>
-      <button data-tab="registry"><i data-lucide="library"></i> Model registry</button>
-      <button data-tab="deployments"><i data-lucide="rocket"></i> Deployments</button>
-      <button data-tab="playground"><i data-lucide="message-square"></i> Playground</button>
+    <nav class="sidebar-nav" id="main-nav">
+      <button class="nav-item active" data-tab="overview">
+        <i data-lucide="layout-dashboard"></i><span>Dashboard</span>
+      </button>
+
+      <div class="nav-section-label">DATA PIPELINE</div>
+      <button class="nav-item" data-tab="datasets">
+        <i data-lucide="file-text"></i><span>Documents</span>
+      </button>
+      <button class="nav-item" data-tab="runs">
+        <i data-lucide="cpu"></i><span>AI Factory</span>
+      </button>
+
+      <div class="nav-section-label">RELEASE CONTROL</div>
+      <button class="nav-item" data-tab="evaluations">
+        <i data-lucide="shield-check"></i><span>Evaluation Gate</span>
+      </button>
+      <button class="nav-item" data-tab="registry">
+        <i data-lucide="library"></i><span>Model Registry</span>
+      </button>
+      <button class="nav-item" data-tab="deployments">
+        <i data-lucide="rocket"></i><span>Deployment</span>
+      </button>
+
+      <div class="nav-section-label">OPERATIONS</div>
+      <button class="nav-item" data-tab="playground">
+        <i data-lucide="message-square"></i><span>AI Playground</span>
+      </button>
+      <button class="nav-item" data-tab="monitoring">
+        <i data-lucide="bar-chart-2"></i><span>Monitoring</span>
+      </button>
     </nav>
 
     <div class="sidebar-footer">
-      <div class="status-dot-row">
+      <div class="status-row">
         <span id="api-dot" class="status-dot"></span>
-        <span id="api-status-text">Checking API key…</span>
+        <span id="api-status-text" class="status-text">Checking…</span>
       </div>
+      <button class="dark-toggle" id="dark-toggle" title="Toggle dark mode">
+        <i data-lucide="moon" id="dark-icon"></i>
+      </button>
     </div>
   </aside>
 
-  <main>
+  <!-- MAIN CONTENT -->
+  <main class="main-content">
 
+    <!-- ========== DASHBOARD ========== -->
     <section id="overview" class="tab active">
       <div class="page-head">
-        <h1>Pipeline overview</h1>
-        <p>Live status across every stage of the release control plane.</p>
+        <div>
+          <h1>Dashboard</h1>
+          <p>Enterprise AI Factory · Live pipeline status across every stage</p>
+        </div>
+        <div class="page-actions">
+          <span id="last-updated" class="last-updated"></span>
+          <button class="btn-secondary btn-sm" onclick="refreshAll()">
+            <i data-lucide="refresh-cw"></i> Refresh
+          </button>
+        </div>
       </div>
-      <div id="stat-grid" class="stat-grid"></div>
-      <div class="card explainer">
-        <h3><i data-lucide="info"></i> How this works</h3>
-        <p>This app runs a <strong>real, free, local open-weights model</strong> — no API key, no per-token cost, nothing leaves your machine. Upload a policy PDF (or paste text) and it's chunked and scanned for PII before storage. "Adaptation" builds a small phrasing-style system prompt plus a real TF-IDF search index over your documents — the same kind of vector-search approach production RAG systems use, just running locally instead of on a hosted vector database. Every playground question triggers <strong>live retrieval</strong> — the top-matching chunks for that exact question are pulled fresh and injected into the prompt, not dumped statically. The evaluation gate calls the local model twice per test case — once with no banking context, once through your adapter — and scores the actual generated text.</p>
+
+      <!-- KPI Cards -->
+      <div id="kpi-grid" class="kpi-grid"></div>
+
+      <!-- Pipeline Stepper -->
+      <div class="card stepper-card">
+        <div class="card-title">Pipeline Progress</div>
+        <div class="stepper-scroll">
+          <div id="pipeline-stepper" class="pipeline-stepper"></div>
+        </div>
+      </div>
+
+      <!-- 4-panel grid -->
+      <div class="dashboard-grid">
+        <div class="card" id="panel-health">
+          <div class="card-title"><i data-lucide="activity"></i> System Health</div>
+          <div id="health-rows"></div>
+        </div>
+        <div class="card" id="panel-eval">
+          <div class="card-title"><i data-lucide="shield-check"></i> Evaluation Gate</div>
+          <div id="eval-summary"></div>
+        </div>
+        <div class="card" id="panel-stats">
+          <div class="card-title"><i data-lucide="zap"></i> Inference Stats</div>
+          <div id="infer-stats"></div>
+        </div>
+        <div class="card" id="panel-activity">
+          <div class="card-title"><i data-lucide="clock"></i> Recent Activity</div>
+          <div id="activity-feed"></div>
+        </div>
       </div>
     </section>
 
+    <!-- ========== DOCUMENTS ========== -->
     <section id="datasets" class="tab">
       <div class="page-head">
-        <h1>Dataset governance</h1>
-        <p>Register a source, review its records, and approve an immutable version before it can be used in a run.</p>
+        <div>
+          <h1>Documents</h1>
+          <p>Register a dataset source, upload policy documents, and approve for use in adapter runs.</p>
+        </div>
       </div>
+
       <form id="dataset-form" class="card form-card">
+        <div class="card-title">Register New Dataset</div>
         <div class="form-row">
-          <input name="name" placeholder="Dataset name" required>
-          <input name="source" placeholder="Source" required>
+          <div class="field-group">
+            <label class="field-label">Dataset Name</label>
+            <input name="name" placeholder="e.g. HDFC Banking Policies Q2-2026" required>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Source</label>
+            <input name="source" placeholder="e.g. Policy Portal v3.1" required>
+          </div>
         </div>
         <div class="form-row">
-          <input name="purpose" placeholder="Approved purpose" required>
-          <select name="classification">
-            <option value="internal">internal</option>
-            <option value="restricted">restricted</option>
-            <option value="public">public</option>
-          </select>
+          <div class="field-group">
+            <label class="field-label">Approved Purpose</label>
+            <input name="purpose" placeholder="e.g. Customer service grounding" required>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Classification</label>
+            <select name="classification">
+              <option value="internal">Internal</option>
+              <option value="restricted">Restricted</option>
+              <option value="public">Public</option>
+            </select>
+          </div>
         </div>
-        <label class="field-label">Task records (JSON array) — optional if you're only uploading documents</label>
-        <textarea name="records" id="records-textarea" rows="6">[]</textarea>
+        <div class="field-group">
+          <label class="field-label">Task Records (JSON array) — optional if uploading documents only</label>
+          <textarea name="records" id="records-textarea" rows="5">[]</textarea>
+        </div>
         <div class="actions-row">
-          <button type="button" id="load-sample" class="btn-secondary"><i data-lucide="sparkles"></i> Load sample banking dataset</button>
-          <button type="submit" class="btn-primary"><i data-lucide="plus"></i> Register dataset</button>
+          <button type="button" id="load-sample" class="btn-secondary">
+            <i data-lucide="sparkles"></i> Load Sample Banking Dataset
+          </button>
+          <button type="submit" class="btn-primary">
+            <i data-lucide="plus"></i> Register Dataset
+          </button>
         </div>
       </form>
 
       <div class="card form-card">
-        <label class="field-label">Add a policy document to an existing dataset</label>
+        <div class="card-title">Upload Documents to Dataset</div>
         <div class="form-row">
-          <select id="upload-dataset-select"></select>
+          <div class="field-group" style="flex:1">
+            <label class="field-label">Target Dataset</label>
+            <select id="upload-dataset-select"></select>
+          </div>
         </div>
         <div class="form-row">
-          <input type="file" id="pdf-file-input" accept=".pdf,.docx">
-          <button type="button" id="upload-pdf-btn" class="btn-secondary"><i data-lucide="file-up"></i> Upload PDF</button>
+          <div class="field-group" style="flex:2">
+            <label class="field-label">PDF or DOCX File</label>
+            <input type="file" id="pdf-file-input" accept=".pdf,.docx">
+          </div>
+          <div class="field-group" style="flex:1; justify-content:flex-end; display:flex; align-items:flex-end;">
+            <button type="button" id="upload-pdf-btn" class="btn-secondary" style="width:100%">
+              <i data-lucide="file-up"></i> Upload PDF
+            </button>
+          </div>
         </div>
-        <label class="field-label">— or paste policy text directly —</label>
-        <div class="form-row">
-          <input id="paste-filename" placeholder="Document name, e.g. loan_policy.txt">
+        <div class="divider-label">— or paste policy text directly —</div>
+        <div class="field-group">
+          <label class="field-label">Document Name</label>
+          <input id="paste-filename" placeholder="e.g. loan_policy_2026.txt">
         </div>
-        <textarea id="paste-text" rows="4" placeholder="Paste raw policy text here. It will be automatically chunked and scanned for PII before storage."></textarea>
+        <div class="field-group">
+          <label class="field-label">Paste Text</label>
+          <textarea id="paste-text" rows="4" placeholder="Paste raw policy text. It will be chunked and scanned for PII before storage."></textarea>
+        </div>
         <div class="actions-row">
-          <button type="button" id="upload-text-btn" class="btn-secondary"><i data-lucide="file-plus"></i> Add document</button>
+          <button type="button" id="upload-text-btn" class="btn-secondary">
+            <i data-lucide="file-plus"></i> Add Document
+          </button>
         </div>
-        <div id="upload-result" class="hint"></div>
+        <div id="upload-result" class="upload-result"></div>
       </div>
-      <div id="dataset-list" class="list"></div>
+
+      <div class="card">
+        <div class="card-title">Registered Datasets</div>
+        <div class="table-wrap">
+          <table id="dataset-table" class="data-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Chunks</th>
+                <th>Records</th>
+                <th>Classification</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="dataset-list">
+              <tr class="skeleton-row"><td colspan="6"><div class="skel"></div></td></tr>
+              <tr class="skeleton-row"><td colspan="6"><div class="skel"></div></td></tr>
+              <tr class="skeleton-row"><td colspan="6"><div class="skel"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </section>
 
+    <!-- ========== AI FACTORY (RUNS) ========== -->
     <section id="runs" class="tab">
       <div class="page-head">
-        <h1>Adaptation runs</h1>
-        <p>Builds a grounded system-prompt adapter from an approved dataset. Real, live process — not simulated.</p>
-      </div>
-      <form id="run-form" class="card form-card">
-        <div class="form-row">
-          <input name="name" placeholder="Run name" required>
-          <select name="serving_model" id="serving-model-select">
-            <option value="HuggingFaceTB/SmolLM2-360M-Instruct">SmolLM2-360M-Instruct (default — fast CPU inference)</option>
-            <option value="Qwen/Qwen2.5-0.5B-Instruct">Qwen2.5-0.5B-Instruct (better grounding, slower)</option>
-            <option value="Qwen/Qwen2.5-1.5B-Instruct">Qwen2.5-1.5B-Instruct (best grounding, slowest)</option>
-          </select>
-          <p class="hint" id="serving-model-note" style="margin-top:4px"></p>
+        <div>
+          <h1>AI Factory</h1>
+          <p>Build a grounded adapter from an approved dataset. Builds a system-prompt adapter + TF-IDF search index.</p>
         </div>
-        <select name="dataset_id" id="run-dataset-select" required></select>
+      </div>
+
+      <form id="run-form" class="card form-card">
+        <div class="card-title">New Adapter Run</div>
+        <div class="form-row">
+          <div class="field-group">
+            <label class="field-label">Run Name</label>
+            <input name="name" placeholder="e.g. HDFC-Retail-v1.2" required>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Serving Model</label>
+            <select name="serving_model" id="serving-model-select">
+              <option value="HuggingFaceTB/SmolLM2-360M-Instruct">SmolLM2-360M-Instruct (default — fast CPU)</option>
+              <option value="Qwen/Qwen2.5-0.5B-Instruct">Qwen2.5-0.5B-Instruct (better grounding)</option>
+              <option value="Qwen/Qwen2.5-1.5B-Instruct">Qwen2.5-1.5B-Instruct (best quality, slowest)</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Dataset (Approved Only)</label>
+          <select name="dataset_id" id="run-dataset-select" required></select>
+        </div>
+        <p class="hint" id="serving-model-note"></p>
         <div class="actions-row">
-          <button type="submit" class="btn-primary"><i data-lucide="play"></i> Build adapter</button>
+          <button type="submit" class="btn-primary">
+            <i data-lucide="play"></i> Build Adapter
+          </button>
         </div>
       </form>
-      <div id="run-list" class="list"></div>
+
+      <div id="run-list" class="item-list"></div>
     </section>
 
+    <!-- ========== EVALUATION GATE ========== -->
     <section id="evaluations" class="tab">
       <div class="page-head">
-        <h1>Evaluation &amp; release gate</h1>
-        <p>Calls the live model with and without your adapter for each banking test case, and blocks release on any critical failure.</p>
+        <div>
+          <h1>Evaluation Gate</h1>
+          <p>Calls the live model with and without your adapter for each banking test case. Blocks release on any critical failure.</p>
+        </div>
       </div>
+
       <form id="eval-form" class="card form-card">
-        <select name="run_id" id="eval-run-select" required></select>
+        <div class="card-title">Run Evaluation Gate</div>
+        <div class="field-group">
+          <label class="field-label">Select Adapter Run</label>
+          <select name="run_id" id="eval-run-select" required></select>
+        </div>
         <div class="actions-row">
-          <button type="submit" class="btn-primary"><i data-lucide="shield-check"></i> Run evaluation gate</button>
+          <button type="submit" class="btn-primary">
+            <i data-lucide="shield-check"></i> Run Evaluation Gate
+          </button>
         </div>
       </form>
-      <div id="eval-list" class="list"></div>
+
+      <div id="eval-list" class="item-list"></div>
     </section>
 
+    <!-- ========== MODEL REGISTRY ========== -->
     <section id="registry" class="tab">
       <div class="page-head">
-        <h1>Model registry</h1>
-        <p>Signed, versioned entries linking each release to its adapter, evaluation evidence, and owner.</p>
+        <div>
+          <h1>Model Registry</h1>
+          <p>Signed, versioned entries linking each release to its adapter, evaluation evidence, and owner.</p>
+        </div>
       </div>
+
       <form id="registry-form" class="card form-card">
+        <div class="card-title">Register Model</div>
         <div class="form-row">
-          <select name="evaluation_id" id="registry-eval-select" required></select>
-          <input name="owner" placeholder="Operational owner">
+          <div class="field-group">
+            <label class="field-label">Passed Evaluation</label>
+            <select name="evaluation_id" id="registry-eval-select" required></select>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Operational Owner</label>
+            <input name="owner" placeholder="e.g. ml-ops-team">
+          </div>
         </div>
         <div class="actions-row">
-          <button type="submit" class="btn-primary"><i data-lucide="library"></i> Register model</button>
+          <button type="submit" class="btn-primary">
+            <i data-lucide="library"></i> Register Model
+          </button>
         </div>
       </form>
-      <div id="registry-list" class="list"></div>
+
+      <div id="registry-list" class="item-list"></div>
     </section>
 
+    <!-- ========== DEPLOYMENT ========== -->
     <section id="deployments" class="tab">
       <div class="page-head">
-        <h1>Deployment control plane</h1>
-        <p>Canary traffic, expansion, and rollback for promoted models.</p>
+        <div>
+          <h1>Deployment</h1>
+          <p>Canary traffic control, expansion, and rollback for promoted models.</p>
+        </div>
       </div>
-      <div id="deployment-list" class="list"></div>
-    </section>
 
-    <section id="playground" class="tab">
-      <div class="page-head">
-        <h1>Integration playground</h1>
-        <p>Send a real prompt to a live deployment, or to the base model with no banking context, and compare.</p>
-      </div>
-      <form id="infer-form" class="card form-card">
-        <select name="deployment_id" id="infer-deployment-select">
-          <option value="">Base model — no deployment, no banking context</option>
-        </select>
-        <textarea name="prompt" rows="3" placeholder="e.g. Can you guarantee returns on this fund?" required></textarea>
+      <form id="deploy-form" class="card form-card">
+        <div class="card-title">Promote to Deployment</div>
+        <div class="field-group">
+          <label class="field-label">Registry Model</label>
+          <select id="deploy-registry-select"></select>
+        </div>
         <div class="actions-row">
-          <button type="submit" class="btn-primary"><i data-lucide="send"></i> Send</button>
+          <button type="button" id="promote-btn" class="btn-primary">
+            <i data-lucide="rocket"></i> Promote to Deployment
+          </button>
         </div>
       </form>
-      <div id="infer-result" class="card result-card" style="display:none"></div>
-      <div id="infer-history" class="list"></div>
+
+      <div id="deployment-list" class="item-list"></div>
+    </section>
+
+    <!-- ========== AI PLAYGROUND ========== -->
+    <section id="playground" class="tab">
+      <div class="page-head">
+        <div>
+          <h1>AI Playground</h1>
+          <p>Send a real prompt to a live deployment or the base model and inspect retrieved context.</p>
+        </div>
+      </div>
+
+      <form id="infer-form" class="card form-card">
+        <div class="form-row">
+          <div class="field-group" style="flex:1">
+            <label class="field-label">Deployment</label>
+            <select name="deployment_id" id="infer-deployment-select">
+              <option value="">Base model — no deployment, no banking context</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Prompt</label>
+          <textarea name="prompt" rows="3" placeholder="e.g. Can you guarantee returns on this mutual fund?" required></textarea>
+        </div>
+        <div class="actions-row">
+          <button type="submit" class="btn-primary">
+            <i data-lucide="send"></i> Send
+          </button>
+        </div>
+      </form>
+
+      <div class="playground-layout">
+        <div id="infer-result" class="card result-card" style="display:none"></div>
+        <div id="infer-sources" class="card sources-card" style="display:none">
+          <div class="card-title"><i data-lucide="book-open"></i> Retrieved Sources</div>
+          <div id="sources-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== MONITORING ========== -->
+    <section id="monitoring" class="tab">
+      <div class="page-head">
+        <div>
+          <h1>Monitoring</h1>
+          <p>Live inference metrics, escalation rates, and guardrail breakdown from the model serving layer.</p>
+        </div>
+        <div class="page-actions">
+          <button class="btn-secondary btn-sm" onclick="renderMonitoring()">
+            <i data-lucide="refresh-cw"></i> Refresh
+          </button>
+        </div>
+      </div>
+
+      <div id="monitoring-kpis" class="kpi-grid"></div>
+      <div class="card" style="margin-top:16px">
+        <div class="card-title"><i data-lucide="shield"></i> Guardrail Breakdown</div>
+        <div id="guardrail-breakdown"></div>
+      </div>
     </section>
 
   </main>
 </div>
+
+<!-- Toast container -->
+<div id="toast-container" class="toast-container"></div>
 
 <script src="app.js"></script>
 </body>
