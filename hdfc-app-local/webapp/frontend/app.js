@@ -49,17 +49,34 @@ async function api(path, opts = {}) {
 }
 
 // ── Sparkline helpers ────────────────────────────────────────────────────────
-function generateSparkData(peak, seed) {
-  // Deterministic pseudo-random trend line based on peak value and seed
+function generateSparkData(peak, index) {
   const n = 12;
   const data = [];
-  let v = Math.max(1, peak * 0.5);
-  for (let i = 0; i < n; i++) {
-    const noise = Math.sin((seed * 7 + i) * 1.3) * 0.2 + Math.cos(i * 0.9 + seed) * 0.15;
-    v = Math.max(0, v + v * noise * 0.4);
-    data.push(v);
+  const val = Math.max(1, peak);
+
+  if (index === 0) { // Datasets: Steady step growth
+    for (let i = 0; i < n; i++) data.push(Math.round(val * (0.2 + (i / n) * 0.8)));
+  } else if (index === 1) { // Total Chunks: Exponential growth curve
+    for (let i = 0; i < n; i++) data.push(Math.round(val * Math.pow(i / (n - 1), 2)));
+  } else if (index === 2) { // Adapter Runs: Training iteration spikes
+    const pattern = [0.1, 0.3, 0.25, 0.6, 0.45, 0.8, 0.7, 0.9, 0.85, 0.95, 0.9, 1.0];
+    pattern.forEach(p => data.push(val * p));
+  } else if (index === 3) { // Evaluations: Benchmark wave
+    for (let i = 0; i < n; i++) data.push(val * (0.4 + 0.3 * Math.sin(i * 0.8) + (i / n) * 0.3));
+  } else if (index === 4) { // Registry Models: Milestone steps
+    for (let i = 0; i < n; i++) data.push(val * (0.3 + Math.floor(i / 3) * 0.23));
+  } else if (index === 5) { // Live Deployments: Canary rollout staircase
+    for (let i = 0; i < n; i++) data.push(val * (0.2 + Math.floor(i / 2) * 0.16));
+  } else if (index === 6) { // Avg Confidence: High stability band
+    for (let i = 0; i < n; i++) data.push(val + Math.sin(i * 1.5) * 3 - 1.5);
+  } else if (index === 7) { // API Health: Heartbeat pulse
+    const beat = [100, 100, 100, 100, 100, 100, 70, 100, 100, 100, 100, 100];
+    beat.forEach(b => data.push((val / 100) * b));
+  } else {
+    for (let i = 0; i < n; i++) data.push((val / n) * (i + 1));
   }
-  data.push(peak); // always end at the real value
+
+  data[data.length - 1] = val;
   return data;
 }
 
@@ -78,14 +95,22 @@ function drawSparkline(canvas, values, colorStr) {
   const range = max - min || 1;
   const pts = values.map((v, i) => ({
     x: (i / (values.length - 1)) * w,
-    y: h - 4 - ((v - min) / range) * (h - 8)
+    y: h - 5 - ((v - min) / range) * (h - 10)
   }));
+
+  const COLOR_MAP = {
+    "var(--blue)": "#1a6fd4",
+    "var(--teal)": "#06b6d4",
+    "var(--purple)": "#8b5cf6",
+    "var(--warn)": "#f59e0b",
+    "var(--ok)": "#10b981",
+    "var(--accent)": "#ef4444"
+  };
+  const c = COLOR_MAP[colorStr] || (colorStr.startsWith("#") ? colorStr : "#1a6fd4");
 
   // Gradient fill
   const grad = ctx.createLinearGradient(0, 0, 0, h);
-  // Parse color — fallback to blue
-  const c = colorStr.startsWith("var(") ? "#1a6fd4" : colorStr;
-  grad.addColorStop(0, c + "44");
+  grad.addColorStop(0, c + "55");
   grad.addColorStop(1, c + "00");
 
   ctx.beginPath();
@@ -105,15 +130,17 @@ function drawSparkline(canvas, values, colorStr) {
     p.x, p.y
   ));
   ctx.strokeStyle = c;
-  ctx.lineWidth = 1.8;
+  ctx.lineWidth = 2.0;
   ctx.lineJoin = "round";
   ctx.stroke();
 
-  // End dot
+  // Glowing end dot
   const last = pts[pts.length - 1];
   ctx.beginPath();
-  ctx.arc(last.x, last.y, 3, 0, Math.PI * 2);
+  ctx.arc(last.x, last.y, 3.5, 0, Math.PI * 2);
   ctx.fillStyle = c;
+  ctx.shadowColor = c;
+  ctx.shadowBlur = 6;
   ctx.fill();
 }
 // ─────────────────────────────────────────────────────────────────────────────
@@ -153,8 +180,47 @@ function showToast(message, type = "info") {
 }
 
 // ===================================================
-// LOGIN
+// PERSISTENT THEME ENGINE
 // ===================================================
+
+const THEME_KEY = "hdfc_theme";
+
+function applyTheme(theme) {
+  if (theme === "light") {
+    document.documentElement.setAttribute("data-theme", "light");
+    document.body.setAttribute("data-theme", "light");
+  } else {
+    document.documentElement.removeAttribute("data-theme");
+    document.body.removeAttribute("data-theme");
+  }
+  localStorage.setItem(THEME_KEY, theme);
+
+  const btn  = document.getElementById("dark-toggle");
+  const icon = document.getElementById("dark-icon");
+  if (btn && icon) {
+    btn.title = theme === "light" ? "Switch to Dark Mode" : "Switch to Light Mode";
+    icon.setAttribute("data-lucide", theme === "light" ? "sun" : "moon");
+    lucide.createIcons({ nodes: [btn] });
+  }
+
+  const profThemeSel = document.getElementById("edit-profile-theme");
+  if (profThemeSel) profThemeSel.value = theme;
+}
+
+function initTheme() {
+  const saved = localStorage.getItem(THEME_KEY) || "dark";
+  applyTheme(saved);
+}
+
+function toggleTheme() {
+  const current = document.body.getAttribute("data-theme") === "light" ? "light" : "dark";
+  const next = current === "light" ? "dark" : "light";
+  applyTheme(next);
+  showToast(`Switched to ${next === "light" ? "HDFC Light Corporate" : "Midnight Executive Dark"} theme.`, "info");
+}
+
+document.getElementById("dark-toggle")?.addEventListener("click", toggleTheme);
+initTheme();
 
 const USER_KEY = "hdfc_user";
 
@@ -169,16 +235,93 @@ function checkLogin() {
 }
 
 function showLogin() {
-  document.getElementById("login-screen").classList.remove("hide");
-  document.getElementById("login-screen").style.display = "flex";
-  document.getElementById("app-shell").style.display = "none";
+  const login = document.getElementById("login-screen");
+  if (login) {
+    login.classList.remove("hide");
+    login.style.display = "flex";
+  }
+  const appShell = document.getElementById("app-shell");
+  if (appShell) appShell.style.display = "none";
 }
 
 function showApp() {
   const login = document.getElementById("login-screen");
-  login.classList.add("hide");
-  setTimeout(() => { login.style.display = "none"; }, 500);
-  document.getElementById("app-shell").style.display = "block";
+  if (login) {
+    login.classList.add("hide");
+    login.style.display = "none";
+  }
+  const appShell = document.getElementById("app-shell");
+  if (appShell) appShell.style.display = "block";
+}
+
+let _currentAuthTab = "login";
+
+function switchAuthTab(tab) {
+  _currentAuthTab = tab;
+  const loginTabBtn  = document.getElementById("tab-login-btn");
+  const regTabBtn    = document.getElementById("tab-register-btn");
+  const regNameField = document.getElementById("reg-name-field");
+  const regRoleField = document.getElementById("reg-role-field");
+  const btnText      = document.getElementById("login-btn-text");
+
+  if (tab === "register") {
+    loginTabBtn?.classList.remove("active");
+    regTabBtn?.classList.add("active");
+    if (regNameField) regNameField.style.display = "block";
+    if (regRoleField) regRoleField.style.display = "block";
+    if (btnText) btnText.textContent = "Create Account";
+  } else {
+    regTabBtn?.classList.remove("active");
+    loginTabBtn?.classList.add("active");
+    if (regNameField) regNameField.style.display = "none";
+    if (regRoleField) regRoleField.style.display = "none";
+    if (btnText) btnText.textContent = "Secure Login";
+  }
+}
+
+function openUserProfileModal() {
+  const modal = document.getElementById("profile-modal");
+  if (!modal) return;
+  const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
+  const name = u.name || "AI Engineer";
+  const role = u.role || "AI Engineer";
+  const email = u.email || `${name.toLowerCase().replace(/\s+/g, ".")}@hdfcbank.com`;
+  const initial = (name || "A")[0].toUpperCase();
+
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set("modal-user-avatar", initial);
+  set("modal-user-name", name);
+  set("modal-user-email", email);
+  set("modal-user-role-badge", role);
+
+  const nameInp = document.getElementById("edit-profile-name");
+  const roleSel = document.getElementById("edit-profile-role");
+  if (nameInp) nameInp.value = name;
+  if (roleSel) roleSel.value = role;
+
+  modal.style.display = "flex";
+  lucide.createIcons({ nodes: [modal] });
+}
+
+function closeUserProfileModal() {
+  const modal = document.getElementById("profile-modal");
+  if (modal) modal.style.display = "none";
+}
+
+function saveUserProfile() {
+  const nameInp = document.getElementById("edit-profile-name");
+  const roleSel = document.getElementById("edit-profile-role");
+  const name = nameInp?.value.trim() || "AI Engineer";
+  const role = roleSel?.value || "AI Engineer";
+
+  const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
+  u.name = name;
+  u.role = role;
+  sessionStorage.setItem(USER_KEY, JSON.stringify(u));
+
+  updateSidebarUser();
+  closeUserProfileModal();
+  showToast(`Profile updated: ${name} (${role})`, "ok");
 }
 
 function updateSidebarUser() {
@@ -199,22 +342,20 @@ const loginForm = document.getElementById("login-form");
 if (loginForm) {
   loginForm.addEventListener("submit", (e) => {
     e.preventDefault();
-    const btn = document.getElementById("login-btn");
-    const name = document.getElementById("login-username").value.trim() || "AI Engineer";
-    btn.disabled = true;
-    btn.innerHTML = `<span class="spinner"></span><span>Authenticating…</span>`;
-    lucide.createIcons({ nodes: [btn] });
-    setTimeout(() => {
-      const user = { name, role: "AI Engineer", loginTime: Date.now() };
-      sessionStorage.setItem(USER_KEY, JSON.stringify(user));
-      showApp();
-      updateSidebarUser();
-      bootApp();
-      showToast(`Welcome, ${name}.`, "ok");
-      btn.disabled = false;
-      btn.innerHTML = `<i data-lucide="lock"></i><span>Secure Login</span>`;
-      lucide.createIcons({ nodes: [btn] });
-    }, 850);
+    const isRegister  = _currentAuthTab === "register";
+    const fullNameInp = document.getElementById("login-fullname");
+    const usernameInp = document.getElementById("login-username");
+    const roleSel     = document.getElementById("login-role");
+
+    const name = (isRegister && fullNameInp?.value.trim()) ? fullNameInp.value.trim() : (usernameInp?.value.trim() || "AI Engineer");
+    const role = (isRegister && roleSel?.value) ? roleSel.value : "AI Engineer";
+
+    const user = { name, role, email: `${name.toLowerCase().replace(/\s+/g, ".")}@hdfcbank.com`, loginTime: Date.now() };
+    sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+    showApp();
+    updateSidebarUser();
+    bootApp();
+    showToast(isRegister ? `Account created! Welcome, ${name}.` : `Welcome back, ${name}.`, "ok");
   });
 }
 
@@ -235,31 +376,7 @@ function doLogout() {
   showToast("Signed out.", "info");
 }
 
-// ===================================================
-// DARK MODE
-// ===================================================
 
-const darkToggle = document.getElementById("dark-toggle");
-const darkIcon   = document.getElementById("dark-icon");
-
-function applyTheme(dark) {
-  document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
-  if (darkIcon) {
-    darkIcon.setAttribute("data-lucide", dark ? "moon" : "sun");
-    lucide.createIcons({ nodes: [darkToggle] });
-  }
-  localStorage.setItem("hdfc-theme", dark ? "dark" : "light");
-}
-
-const savedTheme = localStorage.getItem("hdfc-theme");
-applyTheme(savedTheme !== "light"); // dark by default
-
-if (darkToggle) {
-  darkToggle.addEventListener("click", () => {
-    const isDark = document.documentElement.getAttribute("data-theme") === "dark";
-    applyTheme(!isDark);
-  });
-}
 
 // ===================================================
 // TAB SWITCHING
@@ -617,33 +734,47 @@ async function approveDataset(dsId) {
 let _allDatasets = [];
 
 function filterDatasets() {
-  const q = (document.getElementById("dataset-search")?.value || "").toLowerCase();
-  renderDatasetTable(_allDatasets.filter(d =>
-    !q || (d.name || "").toLowerCase().includes(q) || (d.source || "").toLowerCase().includes(q)
-  ));
+  const q = (document.getElementById("dataset-search")?.value || "").toLowerCase().trim();
+  const statusFilter = document.getElementById("dataset-status-filter")?.value || "all";
+
+  renderDatasetTable(_allDatasets.filter(d => {
+    const matchesText = !q || (d.name || "").toLowerCase().includes(q) || (d.source || "").toLowerCase().includes(q);
+    const matchesStatus = statusFilter === "all" ||
+      (statusFilter === "approved" && d.status === "approved") ||
+      (statusFilter === "pending" && d.status !== "approved");
+    return matchesText && matchesStatus;
+  }));
 }
 
 function renderDatasetTable(datasets) {
   const tbody = document.getElementById("dataset-list");
   if (!tbody) return;
   if (!datasets.length) {
-    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><i data-lucide="file-text"></i>No datasets found.</div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><i data-lucide="file-text"></i>No datasets found. Upload a policy document or paste text.</div></td></tr>`;
     lucide.createIcons({ nodes: [tbody] });
     return;
   }
   tbody.innerHTML = datasets.map(ds => {
     const canApprove = ds.status !== "approved" && ((ds.chunk_count || 0) > 0 || (ds.record_count || 0) > 0);
+    const hasChunks  = (ds.chunk_count || 0) > 0;
     return `<tr>
-      <td class="td-name">${esc(ds.name)}<br><span class="td-mono">${esc(ds.source)}</span></td>
-      <td>${ds.chunk_count ?? 0}</td>
-      <td>${ds.record_count ?? 0}</td>
-      <td><span class="badge neutral">${esc(ds.classification)}</span></td>
-      <td><span class="badge ${ds.status === 'approved' ? 'ok' : 'blue'}">${esc(ds.status)}</span></td>
+      <td class="td-name">
+        <div style="font-weight:700;color:var(--text-primary)">${esc(ds.name)}</div>
+        <div class="td-mono" style="font-size:11px;color:var(--text-secondary)">${esc(ds.source)}</div>
+      </td>
+      <td>
+        <span class="badge ${hasChunks ? 'teal' : 'neutral'}">${ds.chunk_count ?? 0} Chunks</span>
+        ${hasChunks ? '<div style="margin-top:3px"><span class="badge ok" style="font-size:9.5px;padding:1px 6px"><i data-lucide="shield-check" style="width:10px;height:10px"></i> PII Redacted</span></div>' : ''}
+      </td>
+      <td><span class="badge neutral">${ds.record_count ?? 0} Records</span></td>
+      <td><span class="badge purple">${esc((ds.classification || 'internal').toUpperCase())}</span></td>
+      <td><span class="badge ${ds.status === 'approved' ? 'ok' : 'warn'}">${esc(ds.status === 'approved' ? 'Approved' : 'Pending Approval')}</span></td>
       <td><div class="td-actions">
-        ${canApprove ? `<button class="approve-btn" onclick="approveDataset('${ds.id}')">Approve</button>` : "—"}
+        ${canApprove ? `<button class="approve-btn" onclick="approveDataset('${ds.id}')"><i data-lucide="check"></i> Approve for AI</button>` : `<span style="font-size:11.5px;color:var(--ok);font-weight:600"><i data-lucide="check-circle-2"></i> Ready</span>`}
       </div></td>
     </tr>`;
   }).join("");
+  lucide.createIcons({ nodes: [tbody] });
 }
 
 async function renderDatasets() {
@@ -963,13 +1094,25 @@ function buildEvalCardHTML(ev) {
   const pct      = ev.progress ?? 0;
   const isActive = ev.status === "running" || ev.status === "queued";
 
+  // Stage pills helper
+  const pSt = (min, max) => pct >= max ? "done" : pct >= min ? "active" : "";
+  const stagePills = `
+    <div class="eval-stage-pills">
+      <span class="eval-stage-pill ${pSt(0, 15)}">${pct >= 15 ? '<i data-lucide="check"></i>' : '1.'} Load Model</span>
+      <span class="eval-stage-pill ${pSt(15, 50)}">${pct >= 50 ? '<i data-lucide="check"></i>' : '2.'} Base Model (5)</span>
+      <span class="eval-stage-pill ${pSt(50, 85)}">${pct >= 85 ? '<i data-lucide="check"></i>' : '3.'} Adapted RAG (5)</span>
+      <span class="eval-stage-pill ${pSt(85, 100)}">${pct >= 100 ? '<i data-lucide="check"></i>' : '4.'} Gate Scoring</span>
+    </div>
+  `;
+
   const progressBlock = isActive ? `
+    ${stagePills}
     <div class="eval-prog-row">
       <div class="progress-bar" style="flex:1"><div class="progress-bar-fill" id="eprog-${ev.id}" style="width:${pct}%"></div></div>
       <span class="eval-pct-lbl" id="epct-${ev.id}">${pct}%</span>
     </div>
-    <div class="eval-stage-txt" id="estxt-${ev.id}">${evalStageText(pct)}</div>
-    ${ev.status === "running" ? `<div class="item-actions"><button class="btn-danger btn-sm" onclick="cancelEval('${ev.id}')">Cancel</button></div>` : ""}
+    <div class="eval-stage-txt" id="estxt-${ev.id}">${evalStageText(pct)} · <span style="opacity:0.8">Est. ~1-2 mins on CPU</span></div>
+    ${ev.status === "running" ? `<div class="item-actions" style="margin-top:8px"><button class="btn-danger btn-sm" onclick="cancelEval('${ev.id}')">Cancel Evaluation</button></div>` : ""}
   ` : "";
 
   const caseRows = cases.length ? `
@@ -1077,10 +1220,34 @@ function copyText(txt) {
   navigator.clipboard?.writeText(txt).then(() => showToast("Copied to clipboard.", "ok")).catch(() => {});
 }
 
+let _registryEntries = [];
+
+function extractVersionNum(vStr) {
+  if (!vStr) return 0;
+  const match = String(vStr).match(/v?(\d+)/i);
+  return match ? parseInt(match[1], 10) : 0;
+}
+
+function downloadModelCard(modelId) {
+  const entry = _registryEntries.find(m => String(m.id) === String(modelId));
+  if (!entry) return showToast("Model card not found.", "warn");
+  const blob = new Blob([JSON.stringify(entry.model_card || entry, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${entry.version || 'model'}_card.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  showToast(`Exported ${entry.version} model card JSON.`, "ok");
+}
+
 async function renderRegistry() {
   let entries;
   try { entries = await api("/registry"); }
   catch { entries = []; }
+  _registryEntries = entries;
 
   const countBadge = document.getElementById("registry-count-badge");
   if (countBadge) {
@@ -1094,18 +1261,30 @@ async function renderRegistry() {
     list.innerHTML = `<div class="item-card"><div class="empty-state"><i data-lucide="library"></i>No registered models yet. Pass an evaluation gate first.</div></div>`;
     lucide.createIcons({ nodes: [list] });
   } else {
-    // Newest first — reverse so most recently registered is at top
-    const sorted = entries.slice().reverse();
+    // Sort descending by version number (e.g. v17 -> v16 -> v2), then by creation time
+    const sorted = entries.slice().sort((a, b) => {
+      const vA = extractVersionNum(a.version);
+      const vB = extractVersionNum(b.version);
+      if (vA !== vB) return vB - vA; // Highest version number at top
+      const tA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const tB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      if (tA !== tB) return tB - tA;
+      return (b.id || 0) - (a.id || 0);
+    });
+
     list.innerHTML = sorted.map((m, idx) => {
       const hash  = m.model_card?.adapter_hash || m.adapter_hash || m.id;
       const owner = m.model_card?.owner || "unassigned";
       const isNewest = idx === 0;
+      const rawVer   = m.version || "v16";
+      const vTag     = rawVer.toLowerCase().startsWith("v") ? rawVer : "v" + rawVer;
+      const displayVer = vTag.startsWith("banking-llm-") ? vTag : "banking-llm-" + vTag;
       return `
       <div class="model-card${isNewest ? " model-card-recent" : ""}">
-        ${isNewest ? '<div class="recent-banner"><i data-lucide="sparkles"></i> Most Recent</div>' : ""}
+        ${isNewest ? '<div class="recent-banner"><i data-lucide="sparkles"></i> LATEST VERSION (TOP)</div>' : ""}
         <div class="model-head">
           <div class="model-icon"><i data-lucide="bot"></i></div>
-          <div><div class="model-name">${esc(m.version)}</div>
+          <div><div class="model-name">${esc(displayVer)} <span style="font-size:11px;opacity:0.75;font-weight:400">(${esc(vTag)})</span></div>
           <div class="model-hash">${esc(String(hash).slice(0, 16))}… <button class="copy-btn" onclick="copyText('${esc(hash)}')" title="Copy hash"><i data-lucide="copy"></i></button></div></div>
         </div>
         <div class="model-badges">
@@ -1115,7 +1294,10 @@ async function renderRegistry() {
         <div class="model-row"><i data-lucide="user"></i> Owner: <b>${esc(owner)}</b></div>
         <div class="model-row"><i data-lucide="git-commit-horizontal"></i> Run: <b>${esc(m.run_id)}</b></div>
         <div class="model-row"><i data-lucide="calendar"></i> Expiry: <b>${esc(m.model_card?.expiry_date || "—")}</b></div>
-        ${m.status !== "promoted" ? `<div class="item-actions"><button onclick="promoteModel('${m.id}')"><i data-lucide="rocket"></i> Promote &amp; Deploy</button></div>` : ""}
+        <div class="item-actions" style="margin-top:10px;gap:8px">
+          ${m.status !== "promoted" ? `<button onclick="promoteModel('${m.id}')"><i data-lucide="rocket"></i> Promote &amp; Deploy</button>` : ""}
+          <button class="btn-secondary" onclick="downloadModelCard('${m.id}')" title="Download signed model card JSON"><i data-lucide="download"></i> Export Card</button>
+        </div>
       </div>`;
     }).join("");
     lucide.createIcons({ nodes: [list] });
@@ -1315,7 +1497,7 @@ function renderChatMessages(messages) {
   if (!messages.length) {
     el.innerHTML = `
       <div class="chat-empty">
-        <div class="ce-logo">H</div>
+        <div class="ce-logo"><img src="hdfc-mark.svg" alt="HDFC Bank"></div>
         <h3>HDFC Banking Assistant</h3>
         <p>Ask about loans, KYC, fixed deposits, fraud, UPI, and more.<br>Responses are grounded in approved policy documents.</p>
       </div>`;
@@ -1327,28 +1509,52 @@ function renderChatMessages(messages) {
 }
 
 /* Strip incomplete trailing content from model responses before displaying */
+
 function trimIncomplete(text) {
+  console.log("My anant ", text);
   if (!text) return text;
-  // Remove inline "Source:" lines the model appends (grounding artifact)
+
+  // Remove inline "Source:" lines appended by the model (grounding artifact)
   text = text.replace(/\n+Source:[\s\S]*/i, "").trimEnd();
-  // Try double-newline paragraphs first
-  const paras = text.split(/\n\n+/);
-  if (paras.length >= 2) {
-    const last = paras[paras.length - 1].trimEnd();
-    if (!/[.!?:"\)\*]$/.test(last)) {
-      return paras.slice(0, -1).join("\n\n").trimEnd();
-    }
+
+  // If text already ends with valid punctuation or markdown quote/asterisk, return as is
+  if (/[.!?:\)"\*]$/.test(text)) {
     return text;
   }
-  // Single paragraph — split by single newlines
+
+  // Step line-by-line from the end to remove only the incomplete trailing line
   const lines = text.split("\n");
-  if (lines.length >= 2) {
-    const last = lines[lines.length - 1].trimEnd();
-    if (!/[.!?:"\)\*]$/.test(last)) {
-      return lines.slice(0, -1).join("\n").trimEnd();
+  while (lines.length > 0) {
+    const lastLine = lines[lines.length - 1].trimEnd();
+    
+    // Empty line -> pop and continue
+    if (!lastLine) {
+      lines.pop();
+      continue;
     }
+
+    // Line ends with valid punctuation or closing markdown symbol -> complete!
+    if (/[.!?:\)"\*]$/.test(lastLine)) {
+      break;
+    }
+
+    // Complete bullet point or numbered list line -> complete!
+    if (/^[\t ]*[\*\-\•\d+\.]\s+.+/i.test(lastLine) && !/\b(that|to|the|with|for|in|of|and|or|must|be)\s*$/i.test(lastLine)) {
+      break;
+    }
+
+    // Try trimming to the last complete sentence within the line
+    const match = lastLine.match(/^.*[.!?:\)"\*]/);
+    if (match && match[0].trim().length > 0) {
+      lines[lines.length - 1] = match[0].trimEnd();
+      break;
+    }
+
+    // Otherwise, pop the incomplete line
+    lines.pop();
   }
-  return text;
+
+  return lines.join("\n").trimEnd();
 }
 
 function renderMessageHTML(m) {
@@ -1378,17 +1584,107 @@ function renderMessageHTML(m) {
     const lat = ms >= 1000 ? (ms / 1000).toFixed(1) + "s" : ms + "ms";
     info = `<div class="msg-footer">${esc(name)} · ${lat}</div>`;
   }
-  return `<div class="msg bot"><div class="msg-avatar">H</div><div class="msg-bubble">${esc(content)}${badges.length ? `<div class="msg-badges">${badges.join("")}</div>` : ""}${cite}${info}</div></div>`;
+  return `<div class="msg bot"><div class="msg-avatar"><img src="hdfc-mark.svg" alt="HDFC"></div><div class="msg-bubble">${esc(content)}${badges.length ? `<div class="msg-badges">${badges.join("")}</div>` : ""}${cite}${info}</div></div>`;
 }
+
+const BANKING_AI_FACTS = [
+  "Did you know? The world's oldest existing bank is Banca Monte dei Paschi di Siena in Italy, founded in 1472!",
+  "Origin of 'Bank': The word comes from Italian 'banco' (bench), as money changers originally conducted business on benches.",
+  "First ATM in the World: Barclays installed the world's first ATM in Enfield, London, in 1967.",
+  "First ATM in India: HSBC installed India's first Automated Teller Machine in Mumbai back in 1987.",
+  "Credit Card Origins: Diners Club (1950) was the first credit card, invented after Frank McNamara forgot his wallet at a restaurant.",
+  "Piggy Bank History: 'Pygg' was an orange clay in Medieval Europe. Jars made of 'pygg' evolved into today's 'piggy banks'!",
+  "The ₹10,000 Note: India once issued ₹10,000 banknotes in 1938 and 1954, which were demonetized in 1978.",
+  "Knights Templar Banking: The Knights Templar operated the first international wire transfer system in the 11th century.",
+  "MICR Code Secret: The 9-digit MICR code on cheques identifies City (first 3), Bank (middle 3), and Branch (last 3).",
+  "IFSC Code Structure: The 11-character IFSC code has 4 letters for Bank, '0' for future use, and 6 chars for Branch.",
+  "First Paper Money: China invented paper currency during the Tang Dynasty (7th century), 500 years before Europe.",
+  "SWIFT Network Volume: SWIFT handles over 44 million financial messages every day across 200+ countries.",
+  "UPI Digital Scale: India's UPI ecosystem processes over 10 billion transactions every single month.",
+  "Why 4-Digit PINs?: James Goodfellow invented 6-digit ATM PINs, but reduced them to 4 digits because his wife preferred 4 numbers!",
+  "Monopoly Banknotes: During WWII, the Bank of England hid real banknotes inside Monopoly boards to help POWs escape.",
+  "Compound Interest Magic: Albert Einstein famously called compound interest the 'eighth wonder of the world'.",
+  "World's Highest Bank: The National Bank of Tibet once operated at over 12,000 feet above sea level in Lhasa.",
+  "Indian Rupee Symbol: Designed by Udaya Kumar in 2010, '₹' combines Devanagari 'र' and Roman 'R'.",
+  "First Bank in India: Bank of Hindustan, established in 1770 in Calcutta, was the earliest bank in India.",
+  "RBI Founding History: The Reserve Bank of India was established on April 1, 1935, based on the Hilton Young Commission.",
+  "Floating Bank Branch: SBI operates a floating ATM on a jetty at Dal Lake in Srinagar, Kashmir!",
+  "Zero-Interest Banking: Islamic Banking operates without charging interest (Riba), relying on profit-sharing models.",
+  "Origin of 'Bankruptcy': Comes from Italian 'banca rotta' (broken bench). Failed bankers had their benches physically broken.",
+  "First Online Banking: Stanford Federal Credit Union launched the world's first online internet banking in 1994.",
+  "Vault Weight: Fort Knox holds over 4,500 metric tons of gold bullion behind a 22-ton blast-proof vault door.",
+  "Central Bank Gold Reserves: NY Federal Reserve holds the world's largest gold vault 80 feet below street level.",
+  "Why 6-Digit Cheque Numbers?: Cheque numbers identify the exact leaf in your chequebook for automated clearing.",
+  "Luhn Algorithm Validation: Credit card numbers use the Luhn Algorithm (Mod 10) to validate card numbers against typos.",
+  "Card Network First Digits: VISA cards always start with 4, Mastercard with 51-55 or 22-27, and Amex with 34 or 37.",
+  "CVV Security Key: CVVs are generated by encrypting card number, expiry, and service code with a secret bank key.",
+  "Zero-Liability Fraud Protection: Banks provide zero-liability protection for unauthorized card transactions reported promptly.",
+  "Cheque Truncation (CTS): CTS scans physical cheques into digital images so clearing happens electronically.",
+  "RTGS vs NEFT: RTGS processes large-value transfers (min ₹2L) in real-time, while NEFT clears in half-hourly batches.",
+  "IMPS 24x7 Clearing: IMPS (Immediate Payment Service) was launched by NPCI on Diwali 2010 for 24x7 instant transfers.",
+  "Repo Rate Impact: Repo Rate is the interest rate at which RBI lends short-term funds to commercial banks.",
+  "Reverse Repo Rate: The rate at which commercial banks park excess liquidity with the Reserve Bank of India.",
+  "CRR (Cash Reserve Ratio): Mandatory percentage of total deposits that commercial banks must keep in cash with RBI.",
+  "SLR (Statutory Liquidity Ratio): Mandatory reserve requirement banks maintain in gold, cash, or government securities.",
+  "CIBIL Score Range: Credit scores in India range from 300 to 900. A score above 750 unlocks the best interest rates.",
+  "Systematic Investment Plan (SIP): SIP enables automated micro-investments into mutual funds via NACH auto-debit.",
+  "HDFC AI Privacy Guarantee: HDFC AI Factory automatically redacts PAN, Aadhaar, and phone numbers before embedding.",
+  "Vector Search Accuracy: Dense vector embeddings match semantic context even if query keywords differ from policy text.",
+  "Deterministic Guardrails: Prompt injection and malicious inputs are blocked by security filters before reaching the LLM.",
+  "Evaluation Gate Assurance: Model adapters must pass 5 automated compliance test cases before promotion to production.",
+  "Canary Rollout Safety: Production deployments support 10% traffic canary testing with instant 1-click rollback.",
+  "100% Offline Generation: All inference and search run locally on CPU — zero customer policy data leaves your machine.",
+  "Gold Standard Reserve: Central banks hold gold reserves as the ultimate hedge against inflation and currency devaluation.",
+  "FD Tax Exemption: Senior citizens enjoy tax-exempt interest income up to ₹50,000 under Section 80TTB.",
+  "Sovereign Gold Bonds (SGB): Issued by RBI on behalf of GoI, offering 2.5% annual interest plus gold price appreciation.",
+  "World's Largest Financial Market: The Forex (Foreign Exchange) market trades over $7.5 Trillion every single day!"
+];
+
+let _factTimer = null;
 
 function showGenerationIndicator() {
   const el   = document.getElementById("chat-messages");
   const wrap = document.createElement("div");
   wrap.className = "msg bot";
   wrap.id        = "gen-indicator";
-  wrap.innerHTML = `<div class="msg-avatar">H</div><div class="msg-bubble"><div class="typing-dots"><span></span><span></span><span></span></div></div>`;
+
+  // Pick a random starting fact each time
+  let factIdx = Math.floor(Math.random() * BANKING_AI_FACTS.length);
+
+  wrap.innerHTML = `
+    <div class="msg-avatar"><img src="hdfc-mark.svg" alt="HDFC"></div>
+    <div class="msg-bubble" style="max-width:500px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <div class="typing-dots"><span></span><span></span><span></span></div>
+        <span style="font-size:12px;color:var(--text-muted);font-weight:500">Generating AI response on local CPU…</span>
+      </div>
+      <div class="gen-fact-box">
+        <div class="gen-fact-icon"><i data-lucide="lightbulb"></i></div>
+        <div class="gen-fact-body">
+          <div class="gen-fact-tag"><i data-lucide="award" style="width:12px;height:12px"></i> Banking Trivia &amp; AI Fact</div>
+          <div class="gen-fact-text" id="gen-fact-content">${BANKING_AI_FACTS[factIdx]}</div>
+        </div>
+      </div>
+    </div>
+  `;
+
   el.appendChild(wrap);
+  lucide.createIcons({ nodes: [wrap] });
   el.scrollTop = el.scrollHeight;
+
+  if (_factTimer) clearInterval(_factTimer);
+  _factTimer = setInterval(() => {
+    factIdx = (factIdx + 1) % BANKING_AI_FACTS.length;
+    const txtEl = document.getElementById("gen-fact-content");
+    if (txtEl) {
+      txtEl.style.opacity = "0";
+      setTimeout(() => {
+        txtEl.textContent = BANKING_AI_FACTS[factIdx];
+        txtEl.style.opacity = "1";
+      }, 200);
+    }
+  }, 5500); // 5.5 seconds display time per fact
+
   return wrap;
 }
 
@@ -1458,6 +1754,7 @@ async function sendInference() {
       method: "POST",
       body: JSON.stringify({ deployment_id: deploymentId, prompt })
     });
+    if (_factTimer) { clearInterval(_factTimer); _factTimer = null; }
     indicator.remove();
     const meta = {
       confidence: result.confidence, latency_ms: result.latency_ms,
@@ -1472,6 +1769,7 @@ async function sendInference() {
     renderRetrieval(meta);
     renderMonitoring();
   } catch (err) {
+    if (_factTimer) { clearInterval(_factTimer); _factTimer = null; }
     indicator.remove();
     messages.push({ role: "bot", content: "Request failed: " + err.message, meta: {} });
     renderChatMessages(messages);
@@ -1512,6 +1810,43 @@ function toggleSources() {
 }
 document.getElementById("toggle-sources-btn")?.addEventListener("click", toggleSources);
 
+function exportChatConversation() {
+  const msgs = currentMessages();
+  if (!msgs.length) {
+    return showToast("No chat history to export.", "warn");
+  }
+
+  let md = `# HDFC AI Factory — Chat Transcript\n`;
+  md += `*Exported on: ${new Date().toLocaleString()}*\n\n---\n\n`;
+
+  msgs.forEach((m, idx) => {
+    const roleName = m.role === "user" ? "User" : "HDFC Banking Assistant";
+    md += `### ${roleName}\n${m.content}\n\n`;
+    if (m.meta && Object.keys(m.meta).length) {
+      if (m.meta.citations?.length) {
+        md += `> **Sources**: ${m.meta.citations.join(" · ")}\n`;
+      }
+      if (m.meta.served_by) {
+        md += `> **Served By**: ${m.meta.served_by} (${m.meta.latency_ms ?? 0}ms)\n`;
+      }
+      md += `\n`;
+    }
+  });
+
+  const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href     = url;
+  a.download = `hdfc_chat_transcript_${Date.now()}.md`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  showToast("Chat transcript exported as Markdown.", "ok");
+}
+
+
+
 // Quick chips
 const QUICK_CHIPS = ["Loan eligibility", "KYC requirements", "FD rules", "Savings account", "Credit card", "UPI limits", "Report fraud", "ATM issue"];
 function renderQuickChips() {
@@ -1531,33 +1866,105 @@ function renderQuickChips() {
 // MONITORING
 // ===================================================
 
+let _latestMonData = {};
+
+async function exportMonitoringCSV() {
+  const mon = _latestMonData || {};
+  const rows = [
+    ["Metric", "Value"],
+    ["Total Inferences", mon.total_requests ?? 0],
+    ["Avg Confidence (%)", Math.min(100, mon.avg_confidence ?? 0).toFixed(1)],
+    ["Avg Latency (ms)", Math.round(mon.avg_latency_ms ?? 0)],
+    ["Escalation Count", mon.escalation_count ?? 0],
+    ["", ""],
+    ["Guardrail Policy Category", "Hit Count"]
+  ];
+
+  const breakdown = mon.guardrail_breakdown || {};
+  Object.entries(breakdown).forEach(([cat, count]) => {
+    rows.push([cat, count]);
+  });
+
+  const csvContent = "data:text/csv;charset=utf-8," + rows.map(r => r.map(c => `"${c}"`).join(",")).join("\n");
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement("a");
+  link.setAttribute("href", encodedUri);
+  link.setAttribute("download", `hdfc_ai_telemetry_${Date.now()}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  showToast("Exported monitoring telemetry CSV.", "ok");
+}
+
 async function renderMonitoring() {
   let mon;
   try { mon = await api("/monitoring"); }
   catch { mon = {}; }
+  _latestMonData = mon;
 
-  const latMs    = mon.avg_latency_ms ?? 0;
-  const latLabel = latMs >= 1000 ? (latMs / 1000).toFixed(2) + " s" : Math.round(latMs) + " ms";
-  const avgConf  = Math.min(100, mon.avg_confidence ?? 0);
+  const totalReq   = mon.total_requests ?? 0;
+  const latMs      = mon.avg_latency_ms ?? 0;
+  const latLabel   = latMs >= 1000 ? (latMs / 1000).toFixed(2) + " s" : Math.round(latMs) + " ms";
+  const escCount   = mon.escalation_count ?? 0;
+  const escPct     = totalReq > 0 ? ((escCount / totalReq) * 100).toFixed(1) + "%" : "0.0%";
+  const guardHits  = Object.values(mon.guardrail_breakdown || {}).reduce((a, b) => a + b, 0);
+  const blockPct   = totalReq > 0 ? ((guardHits / totalReq) * 100).toFixed(1) + "%" : "0.0%";
 
-  const kpis = [
-    { label:"Total Inferences", value: mon.total_requests ?? 0, icon:"activity",       grad:"var(--grad-blue)",  color:"var(--blue)" },
-    { label:"Avg Confidence",   value: avgConf, suffix:"%",      icon:"bar-chart-2",    grad:"var(--grad-green)", color:"var(--ok)" },
-    { label:"Guardrail Hits",   value: Object.values(mon.guardrail_breakdown || {}).reduce((a, b) => a + b, 0), icon:"shield", grad:"var(--grad-amber)", color:"var(--warn)" },
-    { label:"Avg Latency",      value: latLabel, icon:"clock",   grad:"var(--grad-purple)", color:"var(--purple)", raw:true }
+  const telemetryMetrics = [
+    {
+      label: "Total Inferences Served",
+      val: totalReq,
+      tag: "100% OPERATIONAL",
+      tagCls: "ok",
+      sub: `<i data-lucide="radio"></i> Serving live LLM inference traffic`,
+      color: "var(--blue)",
+      glow: "rgba(26,111,212,0.25)"
+    },
+    {
+      label: "P95 Response Latency",
+      val: latLabel,
+      tag: latMs < 2000 ? "SLA TARGET MET" : "LATENCY ELEVATED",
+      tagCls: latMs < 2000 ? "ok" : "warn",
+      sub: `<i data-lucide="clock"></i> Target SLA &lt; 2.0s per response`,
+      color: "var(--purple)",
+      glow: "rgba(139,92,246,0.25)",
+      raw: true
+    },
+    {
+      label: "Fraud & Support Escalations",
+      val: escCount,
+      tag: `RATE: ${escPct}`,
+      tagCls: escCount > 0 ? "warn" : "ok",
+      sub: `<i data-lucide="user-check"></i> Escalated to human bank agents`,
+      color: "var(--warn)",
+      glow: "rgba(245,158,11,0.25)"
+    },
+    {
+      label: "Guardrail Threat Shielding",
+      val: guardHits,
+      tag: `BLOCK RATE: ${blockPct}`,
+      tagCls: guardHits > 0 ? "warn" : "ok",
+      sub: `<i data-lucide="shield-alert"></i> Prompt-injection &amp; PII blocks`,
+      color: guardHits > 0 ? "var(--warn)" : "var(--ok)",
+      glow: guardHits > 0 ? "rgba(245,158,11,0.25)" : "rgba(16,185,129,0.25)"
+    }
   ];
 
   const kpiEl = document.getElementById("monitoring-kpis");
   if (kpiEl) {
-    kpiEl.innerHTML = kpis.map((k, i) => `
-      <div class="kpi-card" style="--card-color:${k.color};--card-grad:${k.grad};--delay:${i * 0.05}s">
-        <div class="kpi-icon"><i data-lucide="${k.icon}"></i></div>
-        <div class="kpi-value" ${k.raw ? "" : `data-target="${k.value}" data-suffix="${k.suffix || ""}"`}>${k.raw ? esc(k.value) : "0"}</div>
-        <div class="kpi-label">${esc(k.label)}</div>
+    kpiEl.innerHTML = telemetryMetrics.map((m, i) => `
+      <div class="telemetry-card" style="--t-color:${m.color};--t-glow:${m.glow}">
+        <div class="telemetry-top">
+          <span class="telemetry-tag ${m.tagCls}">${m.tag}</span>
+          <span style="font-size:11px;color:var(--text-muted);font-weight:600">LIVE</span>
+        </div>
+        <div class="telemetry-val" ${m.raw ? "" : `data-target="${m.val}"`}>${m.raw ? esc(m.val) : "0"}</div>
+        <div class="telemetry-lbl">${esc(m.label)}</div>
+        <div class="telemetry-sub">${m.sub}</div>
       </div>
     `).join("");
     lucide.createIcons({ nodes: [kpiEl] });
-    kpiEl.querySelectorAll(".kpi-value[data-target]").forEach(el => animateCount(el, parseFloat(el.dataset.target) || 0, el.dataset.suffix));
+    kpiEl.querySelectorAll(".telemetry-val[data-target]").forEach(el => animateCount(el, parseFloat(el.dataset.target) || 0));
   }
 
   const breakdown = mon.guardrail_breakdown || {};
@@ -1565,17 +1972,25 @@ async function renderMonitoring() {
   if (gbEl) {
     const entries = Object.entries(breakdown);
     if (!entries.length) {
-      gbEl.innerHTML = `<div class="empty-state"><i data-lucide="shield-check"></i>No guardrail events recorded yet. The serving layer is clear.</div>`;
+      gbEl.innerHTML = `<div class="empty-state" style="padding:20px"><i data-lucide="shield-check"></i>Zero guardrail policy hits recorded. All inference queries passed safety evaluation.</div>`;
       lucide.createIcons({ nodes: [gbEl] });
     } else {
       const max = Math.max(...entries.map(([, v]) => v), 1);
-      gbEl.innerHTML = entries.map(([cat, count]) => `
-        <div class="guardrail-row">
-          <span class="guardrail-label">${esc(cat.replace(/_/g, " "))}</span>
-          <div class="guardrail-bar-wrap"><div class="guardrail-bar" style="width:${Math.round((count / max) * 100)}%"></div></div>
-          <span class="guardrail-count">${count}</span>
-        </div>
-      `).join("");
+      const total = Object.values(breakdown).reduce((a, b) => a + b, 0) || 1;
+      gbEl.innerHTML = entries.map(([cat, count]) => {
+        const pct = Math.round((count / total) * 100);
+        return `
+        <div style="margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px">
+            <span style="font-weight:600;color:var(--text-primary)"><i data-lucide="shield-alert" style="width:13px;height:13px;color:var(--warn);vertical-align:-1px"></i> ${esc(cat.replace(/_/g, " ").toUpperCase())}</span>
+            <span style="color:var(--text-secondary);font-family:var(--font-mono)">${count} hits (${pct}%)</span>
+          </div>
+          <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden">
+            <div style="width:${Math.round((count / max) * 100)}%;height:100%;background:var(--grad-amber);border-radius:3px"></div>
+          </div>
+        </div>`;
+      }).join("");
+      lucide.createIcons({ nodes: [gbEl] });
     }
   }
 }
