@@ -13,7 +13,7 @@ if DATABASE_URL.startswith("postgres://"):
 connect_args = {"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
 engine = create_engine(DATABASE_URL, connect_args=connect_args)
 
-# Auto-migrate missing columns for existing PostgreSQL / SQLite tables on module import
+# Auto-migrate missing columns and tables for existing PostgreSQL / SQLite databases on module import
 try:
     from sqlalchemy import text as _mig_text
     with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
@@ -26,7 +26,9 @@ try:
             "ALTER TABLE evaluations ADD COLUMN owner_employee_id VARCHAR DEFAULT 'HDFC-AI-101';",
             "ALTER TABLE model_registry ADD COLUMN owner_employee_id VARCHAR DEFAULT 'HDFC-AI-101';",
             "ALTER TABLE deployments ADD COLUMN owner_employee_id VARCHAR DEFAULT 'HDFC-AI-101';",
-            "ALTER TABLE inference_log ADD COLUMN owner_employee_id VARCHAR DEFAULT 'HDFC-AI-101';"
+            "ALTER TABLE inference_log ADD COLUMN owner_employee_id VARCHAR DEFAULT 'HDFC-AI-101';",
+            "CREATE TABLE IF NOT EXISTS temp_passcodes (id VARCHAR PRIMARY KEY, employee_id VARCHAR NOT NULL, passcode VARCHAR NOT NULL, status VARCHAR DEFAULT 'active', is_used BOOLEAN DEFAULT FALSE, expires_at TIMESTAMP NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);",
+            "CREATE TABLE IF NOT EXISTS user_sessions (id VARCHAR PRIMARY KEY, session_token VARCHAR UNIQUE NOT NULL, employee_id VARCHAR NOT NULL, login_type VARCHAR DEFAULT 'master', device_info VARCHAR DEFAULT 'Web Client', ip_address VARCHAR DEFAULT '127.0.0.1', status VARCHAR DEFAULT 'active', expires_at TIMESTAMP NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
         ]:
             try:
                 conn.execute(_mig_text(tbl_sql))

@@ -40,10 +40,14 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup():
     """On every server start:
-    1. Schema migration: add password column to employees and content_hash to document_chunks if missing.
+    1. Schema migration: add missing columns & create tables if missing.
     2. Mark stale mid-flight runs/evaluations as failed.
     3. Kick off background model preloading.
     """
+    try:
+        models.Base.metadata.create_all(bind=engine)
+    except Exception as _e:
+        print(f"Table creation note: {_e}")
     try:
         raw_conn = engine.raw_connection()
         raw_conn.autocommit = True
