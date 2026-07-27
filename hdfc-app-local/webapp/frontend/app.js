@@ -41,18 +41,26 @@ function safe(val, fallback = "—") {
 async function api(path, opts = {}) {
   const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
   const empId = u.empId || "HDFC-AI-101";
+  const sessionToken = u.sessionToken || "";
   const customHeaders = opts.headers || {};
+
+  const headers = {
+    "Content-Type": "application/json",
+    "X-Employee-ID": empId,
+    ...customHeaders
+  };
+  if (sessionToken) headers["X-Session-Token"] = sessionToken;
 
   const res = await fetch(API + path, {
     ...opts,
-    headers: {
-      "Content-Type": "application/json",
-      "X-Employee-ID": empId,
-      ...customHeaders
-    }
+    headers
   });
   if (!res.ok) {
     const detail = await res.json().catch(() => ({}));
+    if (res.status === 401 && detail.detail && detail.detail.includes("Session has been terminated")) {
+      showToast("❌ Access Revoked: Session was terminated remotely.", "bad");
+      doLogout();
+    }
     throw new Error(detail.detail || res.statusText || "Request failed");
   }
   return res.json();
@@ -377,19 +385,123 @@ function openForgotPasswordModal() {
 function switchPasswordTab(tab) {
   const updateBtn   = document.getElementById("tab-pass-update-btn");
   const forgotBtn   = document.getElementById("tab-pass-forgot-btn");
+  const tempBtn     = document.getElementById("tab-pass-temp-btn");
   const updatePanel = document.getElementById("pass-panel-update");
   const forgotPanel = document.getElementById("pass-panel-forgot");
+  const tempPanel   = document.getElementById("pass-panel-temp");
+
+  [updateBtn, forgotBtn, tempBtn].forEach(b => b?.classList.remove("active"));
+  [updatePanel, forgotPanel, tempPanel].forEach(p => { if (p) p.style.display = "none"; });
 
   if (tab === 'forgot') {
-    updateBtn?.classList.remove("active");
     forgotBtn?.classList.add("active");
-    if (updatePanel) updatePanel.style.display = "none";
     if (forgotPanel) forgotPanel.style.display = "block";
+  } else if (tab === 'temp') {
+    tempBtn?.classList.add("active");
+    if (tempPanel) tempPanel.style.display = "block";
+    loadActiveSessions();
   } else {
-    forgotBtn?.classList.remove("active");
     updateBtn?.classList.add("active");
-    if (forgotPanel) forgotPanel.style.display = "none";
     if (updatePanel) updatePanel.style.display = "block";
+  }
+}
+
+let _tempCountdownTimer = null;
+async function generateTempPasscode() {
+  try {
+    const res = await api("/auth/generate-temp-passcode", { method: "POST" });
+    const codeDisplay = document.getElementById("temp-code-display");
+    const codeVal     = document.getElementById("temp-passcode-val");
+    const codeTimer   = document.getElementById("temp-timer");
+
+    if (codeDisplay && codeVal) {
+      codeDisplay.style.display = "block";
+      codeVal.textContent = res.passcode;
+      
+      let remainingSec = 15 * 60;
+      if (_tempCountdownTimer) clearInterval(_tempCountdownTimer);
+      _tempCountdownTimer = setInterval(() => {
+        remainingSec--;
+        if (remainingSec <= 0) {
+          clearInterval(_tempCountdownTimer);
+          if (codeTimer) codeTimer.textContent = "Expired";
+        } else {
+          const m = Math.floor(remainingSec / 60);
+          const s = remainingSec % 60;
+          if (codeTimer) codeTimer.textContent = `Expires in ${m}:${s < 10 ? '0' : ''}${s}`;
+        }
+      }, 1000);
+    }
+
+    showToast(`🔑 Temp Passcode generated: ${res.passcode} (Valid for 15 mins)`, "ok");
+    loadActiveSessions();
+  } catch (err) {
+    showToast(`❌ Passcode generation failed: ${err.message}`, "bad");
+  }
+}
+
+async function loadActiveSessions() {
+  const el = document.getElementById("active-sessions-list");
+  if (!el) return;
+  try {
+    const sessions = await api("/auth/active-sessions");
+    if (!sessions || !sessions.length) {
+      el.innerHTML = `<div style="font-size:11px;color:var(--text-muted);text-align:center;padding:12px">No active secondary device sessions found.</div>`;
+      return;
+    }
+    el.innerHTML = sessions.map(s => `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-bottom:1px solid var(--border-light);background:var(--bg-main)">
+        <div>
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-main)">
+            <i data-lucide="${s.login_type === 'temp_passcode' ? 'smartphone' : 'laptop'}" style="width:12px;height:12px;color:var(--blue);vertical-align:-1px"></i> ${esc(s.device_info)}
+          </div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:2px">
+            Type: <span style="color:var(--ok)">${esc(s.login_type)}</span> • IP: ${esc(s.ip_address)} • ${new Date(s.created_at).toLocaleTimeString()}
+          </div>
+        </div>
+        <button type="button" class="btn-secondary" style="font-size:10px;padding:3px 8px;color:var(--accent);border-color:rgba(239,68,68,0.3)" onclick="terminateSession('${s.id}')">
+          <i data-lucide="power" style="width:11px;height:11px"></i> Kill Session
+        </button>
+      </div>
+    `).join("");
+    lucide.createIcons({ nodes: [el] });
+  } catch (err) {
+    el.innerHTML = `<div style="font-size:11px;color:var(--text-muted);text-align:center;padding:12px">Failed to load active sessions.</div>`;
+  }
+}
+
+async function terminateSession(sessionId) {
+  try {
+    await api(`/auth/terminate-session/${sessionId}`, { method: "POST" });
+    showToast("🚫 Session terminated remotely.", "ok");
+    loadActiveSessions();
+  } catch (err) {
+    showToast(`❌ Termination failed: ${err.message}`, "bad");
+  }
+}
+
+async function openTempPasscodeSignIn() {
+  const username = prompt("Enter your Registered Corporate Email or Employee ID:");
+  if (!username) return;
+  const passcode = prompt("Enter your 15-Minute Temporary Passcode (e.g. TMP-894201):");
+  if (!passcode) return;
+
+  try {
+    const emp = await api("/auth/login-temp-passcode", {
+      method: "POST",
+      body: JSON.stringify({ username_or_email: username, passcode })
+    });
+
+    const user = { empId: emp.employee_id, name: emp.full_name, role: emp.role, email: emp.email, sessionToken: emp.session_token, loginTime: Date.now() };
+    sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+    resetUserSession();
+    showApp();
+    updateSidebarUser();
+    bootApp(true);
+    logUserAction("TEMP_LOGIN", `${emp.full_name} signed in via Temp Passcode`);
+    showToast(`✅ Signed in via Temp Passcode! Welcome, ${emp.full_name} (${emp.employee_id}).`, "ok");
+  } catch (err) {
+    showToast(`❌ Temp Login Failed: ${err.message}`, "bad");
   }
 }
 

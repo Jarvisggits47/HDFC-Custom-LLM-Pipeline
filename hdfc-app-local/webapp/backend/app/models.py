@@ -152,3 +152,27 @@ class AuditLog(Base):
     details = Column(String, nullable=False)
     created_at = Column(DateTime, default=now)
 
+
+class TempPasscode(Base):
+    __tablename__ = "temp_passcodes"
+    id = Column(String, primary_key=True)
+    employee_id = Column(String, index=True, nullable=False)
+    passcode = Column(String, index=True, nullable=False)
+    status = Column(String, default="active")  # active -> used -> expired -> revoked
+    is_used = Column(Boolean, default=False)
+    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=now)
+
+
+class UserSession(Base):
+    __tablename__ = "user_sessions"
+    id = Column(String, primary_key=True)
+    session_token = Column(String, unique=True, index=True, nullable=False)
+    employee_id = Column(String, index=True, nullable=False)
+    login_type = Column(String, default="master")  # master vs temp_passcode
+    device_info = Column(String, default="Web Client")
+    ip_address = Column(String, default="127.0.0.1")
+    status = Column(String, default="active")  # active -> terminated -> expired
+    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=now)
+

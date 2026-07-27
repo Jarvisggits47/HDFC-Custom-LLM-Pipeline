@@ -630,6 +630,132 @@ def monitoring(request: Request, db: Session = Depends(get_db)):
 
 
 # ----------------------------------------------------------------- employee auth & audit
+@app.post("/api/auth/generate-temp-passcode", response_model=schemas.TempPasscodeOut)
+def generate_temp_passcode(request: Request, db: Session = Depends(get_db)):
+    emp_id = get_emp_id_from_req(request, db)
+    passcode_str = f"TMP-{uuid.uuid4().hex[:6].upper()}"
+    expires_at = datetime.utcnow() + timedelta(minutes=15)
+
+    tp = models.TempPasscode(
+        id=new_id("passcode"),
+        employee_id=emp_id,
+        passcode=passcode_str,
+        status="active",
+        is_used=False,
+        expires_at=expires_at,
+    )
+    db.add(tp)
+
+    log = models.AuditLog(
+        id=new_id("log"),
+        employee_id=emp_id,
+        user_name="Security Control",
+        action="TEMP_PASSCODE_GENERATED",
+        details=f"Generated 15-min temporary passcode {passcode_str} for remote login",
+    )
+    db.add(log)
+    db.commit()
+    db.refresh(tp)
+
+    out = schemas.TempPasscodeOut.model_validate(tp)
+    out.expires_in_minutes = 15
+    return out
+
+
+@app.post("/api/auth/login-temp-passcode", response_model=schemas.EmployeeOut)
+def login_temp_passcode(request: Request, payload: schemas.TempLoginRequest, db: Session = Depends(get_db)):
+    raw = payload.username_or_email.strip()
+    pass_code = payload.passcode.strip().upper()
+
+    emp = db.query(models.Employee).filter(
+        (models.Employee.employee_id == raw.upper()) |
+        (models.Employee.email.ilike(raw))
+    ).first()
+
+    if not emp:
+        raise HTTPException(401, f"Unauthorized personnel '{raw}'. Access denied.")
+
+    tp = db.query(models.TempPasscode).filter(
+        models.TempPasscode.employee_id == emp.employee_id,
+        models.TempPasscode.passcode == pass_code,
+        models.TempPasscode.is_used == False,
+        models.TempPasscode.status == "active",
+        models.TempPasscode.expires_at > datetime.utcnow(),
+    ).first()
+
+    if not tp:
+        raise HTTPException(401, "Invalid, expired, or revoked temporary passcode.")
+
+    tp.is_used = True
+    tp.status = "used"
+
+    session_token = f"sess-{uuid.uuid4().hex}"
+    user_agent = request.headers.get("User-Agent") or "Mobile / Secondary Device"
+    client_ip = request.client.host if request.client else "127.0.0.1"
+
+    sess = models.UserSession(
+        id=new_id("sess"),
+        session_token=session_token,
+        employee_id=emp.employee_id,
+        login_type="temp_passcode",
+        device_info=user_agent[:120],
+        ip_address=client_ip,
+        status="active",
+        expires_at=datetime.utcnow() + timedelta(hours=24),
+    )
+    db.add(sess)
+
+    log = models.AuditLog(
+        id=new_id("log"),
+        employee_id=emp.employee_id,
+        user_name=emp.full_name,
+        action="TEMP_PASSCODE_LOGIN",
+        details=f"Logged in via temporary passcode {pass_code} on {user_agent[:60]}",
+    )
+    db.add(log)
+    db.commit()
+
+    out = schemas.EmployeeOut.model_validate(emp)
+    out.session_token = session_token
+    return out
+
+
+@app.get("/api/auth/active-sessions", response_model=list[schemas.UserSessionOut])
+def list_active_sessions(request: Request, db: Session = Depends(get_db)):
+    emp_id = get_emp_id_from_req(request, db)
+    sessions = db.query(models.UserSession).filter(
+        models.UserSession.employee_id == emp_id,
+        models.UserSession.status == "active",
+        models.UserSession.expires_at > datetime.utcnow(),
+    ).order_by(models.UserSession.created_at.desc()).all()
+    return sessions
+
+
+@app.post("/api/auth/terminate-session/{session_id}")
+def terminate_session(request: Request, session_id: str, db: Session = Depends(get_db)):
+    emp_id = get_emp_id_from_req(request, db)
+    sess = db.query(models.UserSession).filter(
+        models.UserSession.id == session_id,
+        models.UserSession.employee_id == emp_id
+    ).first()
+
+    if not sess:
+        raise HTTPException(404, "Session not found or not owned by user.")
+
+    sess.status = "terminated"
+
+    log = models.AuditLog(
+        id=new_id("log"),
+        employee_id=emp_id,
+        user_name="Master User",
+        action="SESSION_TERMINATED_REMOTELY",
+        details=f"Master account remotely killed session ({sess.device_info})",
+    )
+    db.add(log)
+    db.commit()
+    return {"terminated": True, "session_id": session_id}
+
+
 @app.post("/api/auth/login", response_model=schemas.EmployeeOut)
 def login_employee(payload: schemas.EmployeeLoginRequest, db: Session = Depends(get_db)):
     raw = payload.username_or_id.strip()
@@ -666,7 +792,22 @@ def login_employee(payload: schemas.EmployeeLoginRequest, db: Session = Depends(
     if emp.password and emp.password != payload.password:
         raise HTTPException(401, "Sign In Failed: Incorrect password.")
 
-    return emp
+    session_token = f"sess-{uuid.uuid4().hex}"
+    sess = models.UserSession(
+        id=new_id("sess"),
+        session_token=session_token,
+        employee_id=emp.employee_id,
+        login_type="master",
+        device_info="Master Password Login",
+        status="active",
+        expires_at=datetime.utcnow() + timedelta(days=30),
+    )
+    db.add(sess)
+    db.commit()
+
+    out = schemas.EmployeeOut.model_validate(emp)
+    out.session_token = session_token
+    return out
 
 
 @app.post("/api/auth/register", response_model=schemas.EmployeeOut)

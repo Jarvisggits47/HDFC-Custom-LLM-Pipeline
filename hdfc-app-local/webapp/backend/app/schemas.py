@@ -145,6 +145,39 @@ class EmployeeLoginRequest(BaseModel):
     password: str
 
 
+class TempLoginRequest(BaseModel):
+    username_or_email: str
+    passcode: str
+
+
+class TempPasscodeOut(BaseModel):
+    id: str
+    employee_id: str
+    passcode: str
+    status: str
+    expires_in_minutes: int = 15
+    expires_at: Any
+    created_at: Any
+
+    class Config:
+        from_attributes = True
+
+
+class UserSessionOut(BaseModel):
+    id: str
+    session_token: str
+    employee_id: str
+    login_type: str
+    device_info: str
+    ip_address: str
+    status: str
+    created_at: Any
+    expires_at: Any
+
+    class Config:
+        from_attributes = True
+
+
 class EmployeeRegisterRequest(BaseModel):
     employee_id: str
     full_name: str
@@ -166,6 +199,7 @@ class EmployeeOut(BaseModel):
     email: str
     role: str
     department: str
+    session_token: Optional[str] = None
 
     class Config:
         from_attributes = True
