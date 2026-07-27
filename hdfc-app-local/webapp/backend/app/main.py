@@ -34,26 +34,32 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup():
     """On every server start:
-    1. Schema migration: add content_hash column to document_chunks if missing
-       (SQLite ALTER TABLE is safe to run on existing DBs — ignored if present).
-    2. Mark any runs/evals that were mid-flight when the server last stopped
-       as failed — their background threads died with the process and will
-       never finish. This prevents them from being stuck in "building" forever.
-    3. Kick off a background model preload so the first inference or eval
-       call doesn't block on a cold model load.
+    1. Schema migration: add password column to employees and content_hash to document_chunks if missing.
+    2. Mark stale mid-flight runs/evaluations as failed.
+    3. Kick off background model preloading.
     """
-    with engine.connect() as conn:
+    try:
+        raw_conn = engine.raw_connection()
+        raw_conn.autocommit = True
+        cursor = raw_conn.cursor()
         try:
-            conn.execute(_sql("ALTER TABLE document_chunks ADD COLUMN content_hash VARCHAR"))
-            conn.commit()
+            cursor.execute("ALTER TABLE employees ADD COLUMN IF NOT EXISTS password VARCHAR DEFAULT 'Hdfc@2026';")
         except Exception:
-            pass  # column already exists — safe to ignore
-
+            try:
+                cursor.execute("ALTER TABLE employees ADD COLUMN password VARCHAR DEFAULT 'Hdfc@2026';")
+            except Exception:
+                pass
         try:
-            conn.execute(_sql("ALTER TABLE employees ADD COLUMN password VARCHAR DEFAULT 'Hdfc@2026'"))
-            conn.commit()
+            cursor.execute("ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS content_hash VARCHAR;")
         except Exception:
-            pass  # column already exists — safe to ignore
+            try:
+                cursor.execute("ALTER TABLE document_chunks ADD COLUMN content_hash VARCHAR;")
+            except Exception:
+                pass
+        cursor.close()
+        raw_conn.close()
+    except Exception as e:
+        logger.warning(f"Startup DDL migration note: {e}")
 
     db = SessionLocal()
     try:
