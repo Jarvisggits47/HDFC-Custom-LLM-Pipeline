@@ -534,33 +534,31 @@ if (loginForm) {
         showToast(`❌ Verification Failed: ${err.message}`, "bad");
       }
     } else {
-      // Standard Sign In with Username / Email & Password
-      let empId = "HDFC-AI-101";
-      let name  = usernameInp.split("@")[0] || "Abhi";
-      let role  = "Lead AI Engineer";
-      let email = usernameInp.includes("@") ? usernameInp : `${usernameInp}@hdfcbank.com`;
-
-      // Try background verification if username matches an employee ID pattern
+      // Sign In with Username / Corporate Email / Employee ID & Password
+      if (!usernameInp) {
+        showToast("Please enter your Username, Corporate Email, or Employee ID.", "warn");
+        return;
+      }
       try {
         const emp = await api("/auth/verify-employee", {
           method: "POST",
           body: JSON.stringify({ employee_id: usernameInp })
         });
-        empId = emp.employee_id;
-        name  = emp.full_name;
-        role  = emp.role;
-        email = emp.email;
-      } catch {
-        // Fallback standard user login
-      }
+        const empId = emp.employee_id;
+        const name  = emp.full_name;
+        const role  = emp.role;
+        const email = emp.email;
 
-      const user = { empId, name, role, email, loginTime: Date.now() };
-      sessionStorage.setItem(USER_KEY, JSON.stringify(user));
-      showApp();
-      updateSidebarUser();
-      bootApp();
-      logUserAction("USER_LOGIN", `${name} signed in`);
-      showToast(`Welcome back, ${name}.`, "ok");
+        const user = { empId, name, role, email, loginTime: Date.now() };
+        sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+        showApp();
+        updateSidebarUser();
+        bootApp();
+        logUserAction("USER_LOGIN", `${name} (${empId}) signed in`);
+        showToast(`Welcome back, ${name} (${empId}).`, "ok");
+      } catch (err) {
+        showToast(`❌ Sign In Failed: ${err.message}`, "bad");
+      }
     }
   });
 }

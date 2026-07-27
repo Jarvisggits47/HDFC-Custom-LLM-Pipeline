@@ -576,30 +576,37 @@ def monitoring(db: Session = Depends(get_db)):
 # ----------------------------------------------------------------- employee auth & audit
 @app.post("/api/auth/verify-employee", response_model=schemas.EmployeeOut)
 def verify_employee(payload: schemas.EmployeeVerifyRequest, db: Session = Depends(get_db)):
-    raw_id = payload.employee_id.strip().upper()
-    # Normalize inputs like "DEV 3301", "DEV-3301", "3301", "AI 101" to HDFC-DEV-3301 / HDFC-AI-101
-    normalized = raw_id
-    if not normalized.startswith("HDFC-"):
-        parts = raw_id.replace("-", " ").split()
-        if len(parts) == 2:
-            normalized = f"HDFC-{parts[0]}-{parts[1]}"
-        elif len(parts) == 1 and parts[0].isdigit():
-            normalized = f"HDFC-AI-{parts[0]}"
-        elif len(parts) == 1:
-            normalized = f"HDFC-{parts[0]}"
+    raw = payload.employee_id.strip()
+    raw_upper = raw.upper()
 
+    # 1. Direct match on employee_id (case insensitive) or email (case insensitive)
     emp = db.query(models.Employee).filter(
-        (models.Employee.employee_id == raw_id) | (models.Employee.employee_id == normalized)
+        (models.Employee.employee_id == raw_upper) |
+        (models.Employee.email.ilike(raw))
     ).first()
 
     if not emp:
-        # Fallback search for partial numeric match like "3301" or "101"
-        num_part = ''.join(filter(str.isdigit, raw_id))
+        # 2. Normalize inputs like "DEV 3301", "DEV-3301", "3301", "AI 101" to HDFC-DEV-3301 / HDFC-AI-101
+        normalized = raw_upper
+        if not normalized.startswith("HDFC-"):
+            parts = raw_upper.replace("-", " ").split()
+            if len(parts) == 2:
+                normalized = f"HDFC-{parts[0]}-{parts[1]}"
+            elif len(parts) == 1 and parts[0].isdigit():
+                normalized = f"HDFC-AI-{parts[0]}"
+            elif len(parts) == 1:
+                normalized = f"HDFC-{parts[0]}"
+
+        emp = db.query(models.Employee).filter(models.Employee.employee_id == normalized).first()
+
+    if not emp:
+        # 3. Fallback search for partial numeric match like "3301" or "101"
+        num_part = ''.join(filter(str.isdigit, raw))
         if num_part:
             emp = db.query(models.Employee).filter(models.Employee.employee_id.like(f"%{num_part}%")).first()
 
     if not emp:
-        raise HTTPException(404, f"Invalid HDFC Employee ID '{payload.employee_id}'. Please enter an authorized ID (e.g. HDFC-AI-101 or HDFC-DEV-3301).")
+        raise HTTPException(404, f"Unauthorized personnel '{payload.employee_id}'. Access denied. Please enter a valid HDFC Employee ID or registered email.")
 
     return emp
 
