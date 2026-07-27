@@ -22,12 +22,10 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="HDFC custom LLM pipeline — control plane")
 
-# CORS — required for separately-deployed frontends; defaults to open for local dev.
-_cors_origins = [o.strip() for o in os.environ.get("FRONTEND_ORIGIN", "*").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_cors_origins,
-    allow_credentials=(_cors_origins != ["*"]),  # credentials not valid with wildcard origin
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
