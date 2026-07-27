@@ -59,7 +59,7 @@ def on_startup():
         cursor.close()
         raw_conn.close()
     except Exception as e:
-        logger.warning(f"Startup DDL migration note: {e}")
+        print(f"Startup DDL migration note: {e}")
 
     db = SessionLocal()
     try:
