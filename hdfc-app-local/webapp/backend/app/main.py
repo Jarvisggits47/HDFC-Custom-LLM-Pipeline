@@ -49,6 +49,12 @@ def on_startup():
         except Exception:
             pass  # column already exists — safe to ignore
 
+        try:
+            conn.execute(_sql("ALTER TABLE employees ADD COLUMN password VARCHAR DEFAULT 'Hdfc@2026'"))
+            conn.commit()
+        except Exception:
+            pass  # column already exists — safe to ignore
+
     db = SessionLocal()
     try:
         stale_runs = db.query(models.Run).filter(models.Run.status.in_(["building", "queued"])).all()
@@ -580,9 +586,9 @@ def monitoring(db: Session = Depends(get_db)):
 
 
 # ----------------------------------------------------------------- employee auth & audit
-@app.post("/api/auth/verify-employee", response_model=schemas.EmployeeOut)
-def verify_employee(payload: schemas.EmployeeVerifyRequest, db: Session = Depends(get_db)):
-    raw = payload.employee_id.strip()
+@app.post("/api/auth/login", response_model=schemas.EmployeeOut)
+def login_employee(payload: schemas.EmployeeLoginRequest, db: Session = Depends(get_db)):
+    raw = payload.username_or_id.strip()
     raw_upper = raw.upper()
 
     # 1. Direct match on employee_id (case insensitive) or email (case insensitive)
@@ -592,7 +598,6 @@ def verify_employee(payload: schemas.EmployeeVerifyRequest, db: Session = Depend
     ).first()
 
     if not emp:
-        # 2. Normalize inputs like "DEV 3301", "DEV-3301", "3301", "AI 101" to HDFC-DEV-3301 / HDFC-AI-101
         normalized = raw_upper
         if not normalized.startswith("HDFC-"):
             parts = raw_upper.replace("-", " ").split()
@@ -606,13 +611,84 @@ def verify_employee(payload: schemas.EmployeeVerifyRequest, db: Session = Depend
         emp = db.query(models.Employee).filter(models.Employee.employee_id == normalized).first()
 
     if not emp:
-        # 3. Fallback search for partial numeric match like "3301" or "101"
         num_part = ''.join(filter(str.isdigit, raw))
         if num_part:
             emp = db.query(models.Employee).filter(models.Employee.employee_id.like(f"%{num_part}%")).first()
 
     if not emp:
-        raise HTTPException(404, f"Unauthorized personnel '{payload.employee_id}'. Access denied. Please enter a valid HDFC Employee ID or registered email.")
+        raise HTTPException(401, "Sign In Failed: Invalid Email / Employee ID or Password.")
+
+    # Validate password against PostgreSQL database record
+    if emp.password and emp.password != payload.password:
+        raise HTTPException(401, "Sign In Failed: Incorrect password.")
+
+    return emp
+
+
+@app.post("/api/auth/register", response_model=schemas.EmployeeOut)
+def register_employee(payload: schemas.EmployeeRegisterRequest, db: Session = Depends(get_db)):
+    raw_id = payload.employee_id.strip().upper()
+    if not raw_id.startswith("HDFC-"):
+        parts = raw_id.replace("-", " ").split()
+        if len(parts) == 2:
+            raw_id = f"HDFC-{parts[0]}-{parts[1]}"
+
+    emp = db.query(models.Employee).filter(models.Employee.employee_id == raw_id).first()
+    if emp:
+        emp.full_name = payload.full_name
+        emp.email = payload.email
+        emp.role = payload.role
+        emp.password = payload.password
+    else:
+        emp = models.Employee(
+            id=f"emp-{uuid.uuid4().hex[:8]}",
+            employee_id=raw_id,
+            full_name=payload.full_name,
+            email=payload.email,
+            role=payload.role,
+            department="Enterprise AI",
+            password=payload.password
+        )
+        db.add(emp)
+
+    db.commit()
+    db.refresh(emp)
+    return emp
+
+
+@app.post("/api/auth/reset-password", response_model=schemas.EmployeeOut)
+def reset_password(payload: schemas.EmployeePasswordResetRequest, db: Session = Depends(get_db)):
+    raw_id = payload.employee_id.strip().upper()
+    
+    emp = db.query(models.Employee).filter(
+        (models.Employee.employee_id == raw_id) |
+        (models.Employee.email.ilike(payload.email.strip()))
+    ).first()
+
+    if not emp:
+        raise HTTPException(404, f"Employee ID '{payload.employee_id}' or email '{payload.email}' not found.")
+
+    emp.password = payload.new_password
+    if payload.email:
+        emp.email = payload.email.strip()
+
+    db.commit()
+    db.refresh(emp)
+    return emp
+
+
+@app.post("/api/auth/verify-employee", response_model=schemas.EmployeeOut)
+def verify_employee(payload: schemas.EmployeeVerifyRequest, db: Session = Depends(get_db)):
+    raw = payload.employee_id.strip()
+    raw_upper = raw.upper()
+
+    emp = db.query(models.Employee).filter(
+        (models.Employee.employee_id == raw_upper) |
+        (models.Employee.email.ilike(raw))
+    ).first()
+
+    if not emp:
+        raise HTTPException(404, f"Unauthorized personnel '{payload.employee_id}'. Access denied.")
 
     return emp
 

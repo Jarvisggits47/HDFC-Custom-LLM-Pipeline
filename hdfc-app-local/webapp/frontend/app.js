@@ -402,23 +402,23 @@ async function submitForgotPassword() {
   }
 
   try {
-    const emp = await api("/auth/verify-employee", {
+    const emp = await api("/auth/reset-password", {
       method: "POST",
-      body: JSON.stringify({ employee_id: empId })
+      body: JSON.stringify({ employee_id: empId, email: email, new_password: newPass })
     });
 
     const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
     u.empId = emp.employee_id;
     u.name  = emp.full_name;
-    u.email = email;
+    u.email = emp.email;
     sessionStorage.setItem(USER_KEY, JSON.stringify(u));
     updateSidebarUser();
 
     closePasswordModal();
-    logUserAction("PASSWORD_RESET", `Password reset & account verified for ${emp.employee_id} (${email})`);
-    showToast(`✅ Verification successful! Password reset for ${emp.employee_id} (${email}).`, "ok");
+    logUserAction("PASSWORD_RESET", `Password updated in DB for ${emp.employee_id} (${emp.email})`);
+    showToast(`✅ Password successfully updated for ${emp.employee_id} (${emp.email})!`, "ok");
   } catch (err) {
-    showToast(`❌ Verification Failed: Invalid HDFC Employee ID (${empId}).`, "bad");
+    showToast(`❌ Password Reset Failed: ${err.message}`, "bad");
   }
 }
 
@@ -437,9 +437,20 @@ function submitUpdatePassword() {
     return;
   }
 
-  closePasswordModal();
-  logUserAction("PASSWORD_UPDATE", "User updated account password");
-  showToast("✅ Password updated successfully.", "ok");
+  const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
+  const empId = u.empId || "HDFC-AI-101";
+  const email = u.email || "jarvisanand85@gmail.com";
+
+  api("/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify({ employee_id: empId, email, new_password: newPass })
+  }).then(emp => {
+    closePasswordModal();
+    logUserAction("PASSWORD_UPDATE", `User updated password for ${empId}`);
+    showToast("✅ Password updated in PostgreSQL database successfully.", "ok");
+  }).catch(err => {
+    showToast(`❌ Update Failed: ${err.message}`, "bad");
+  });
 }
 
 function updateSidebarUser() {
@@ -505,57 +516,60 @@ if (loginForm) {
     const isRegister  = _currentAuthTab === "register";
     const fullNameInp = document.getElementById("login-fullname")?.value.trim() || "";
     const empIdInp    = document.getElementById("login-empid")?.value.trim() || "";
-    const usernameInp = document.getElementById("login-username")?.value.trim() || "Abhi";
+    const usernameInp = document.getElementById("login-username")?.value.trim() || "";
+    const passwordInp = document.getElementById("login-password")?.value || "";
     const roleSel     = document.getElementById("login-role")?.value || "Lead AI Engineer";
 
+    if (!passwordInp) {
+      showToast("Please enter your password.", "warn");
+      return;
+    }
+
     if (isRegister) {
-      if (!empIdInp) {
-        showToast("Please enter your HDFC Unique Employee ID (e.g. HDFC-AI-101 or DEV 3301).", "warn");
+      if (!empIdInp || !usernameInp || !fullNameInp) {
+        showToast("Please fill in Full Name, HDFC Employee ID, Corporate Email, and Password.", "warn");
         return;
       }
       try {
-        const emp = await api("/auth/verify-employee", {
+        const emp = await api("/auth/register", {
           method: "POST",
-          body: JSON.stringify({ employee_id: empIdInp })
+          body: JSON.stringify({
+            employee_id: empIdInp,
+            full_name: fullNameInp,
+            email: usernameInp,
+            role: roleSel,
+            password: passwordInp
+          })
         });
 
-        const name = fullNameInp || emp.full_name;
-        const role = roleSel || emp.role;
-        const verifiedEmpId = emp.employee_id;
-
-        const user = { empId: verifiedEmpId, name, role, email: emp.email, loginTime: Date.now() };
+        const user = { empId: emp.employee_id, name: emp.full_name, role: emp.role, email: emp.email, loginTime: Date.now() };
         sessionStorage.setItem(USER_KEY, JSON.stringify(user));
         showApp();
         updateSidebarUser();
         bootApp();
-        logUserAction("USER_REGISTER", `New user registered: ${name} (${verifiedEmpId})`);
-        showToast(`Account verified & created! Welcome, ${name} (${verifiedEmpId}).`, "ok");
+        logUserAction("USER_REGISTER", `Registered account: ${emp.full_name} (${emp.employee_id})`);
+        showToast(`Account registered & verified! Welcome, ${emp.full_name} (${emp.employee_id}).`, "ok");
       } catch (err) {
-        showToast(`❌ Verification Failed: ${err.message}`, "bad");
+        showToast(`❌ Registration Failed: ${err.message}`, "bad");
       }
     } else {
-      // Sign In with Username / Corporate Email / Employee ID & Password
       if (!usernameInp) {
         showToast("Please enter your Username, Corporate Email, or Employee ID.", "warn");
         return;
       }
       try {
-        const emp = await api("/auth/verify-employee", {
+        const emp = await api("/auth/login", {
           method: "POST",
-          body: JSON.stringify({ employee_id: usernameInp })
+          body: JSON.stringify({ username_or_id: usernameInp, password: passwordInp })
         });
-        const empId = emp.employee_id;
-        const name  = emp.full_name;
-        const role  = emp.role;
-        const email = emp.email;
 
-        const user = { empId, name, role, email, loginTime: Date.now() };
+        const user = { empId: emp.employee_id, name: emp.full_name, role: emp.role, email: emp.email, loginTime: Date.now() };
         sessionStorage.setItem(USER_KEY, JSON.stringify(user));
         showApp();
         updateSidebarUser();
         bootApp();
-        logUserAction("USER_LOGIN", `${name} (${empId}) signed in`);
-        showToast(`Welcome back, ${name} (${empId}).`, "ok");
+        logUserAction("USER_LOGIN", `${emp.full_name} (${emp.employee_id}) signed in`);
+        showToast(`Welcome back, ${emp.full_name} (${emp.employee_id}).`, "ok");
       } catch (err) {
         showToast(`❌ Sign In Failed: ${err.message}`, "bad");
       }

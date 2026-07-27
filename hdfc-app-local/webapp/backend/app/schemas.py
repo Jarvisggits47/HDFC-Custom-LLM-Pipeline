@@ -135,6 +135,25 @@ class EmployeeVerifyRequest(BaseModel):
     employee_id: str
 
 
+class EmployeeLoginRequest(BaseModel):
+    username_or_id: str
+    password: str
+
+
+class EmployeeRegisterRequest(BaseModel):
+    employee_id: str
+    full_name: str
+    email: str
+    role: str
+    password: str
+
+
+class EmployeePasswordResetRequest(BaseModel):
+    employee_id: str
+    email: str
+    new_password: str
+
+
 class EmployeeOut(BaseModel):
     id: str
     employee_id: str

@@ -132,6 +132,7 @@ class Employee(Base):
     email = Column(String, nullable=False)
     role = Column(String, nullable=False)
     department = Column(String, nullable=False)
+    password = Column(String, nullable=False, default="Hdfc@2026")
     created_at = Column(DateTime, default=now)
 
 
