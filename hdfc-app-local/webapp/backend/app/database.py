@@ -17,14 +17,21 @@ engine = create_engine(DATABASE_URL, connect_args=connect_args)
 try:
     from sqlalchemy import text as _mig_text
     with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
-        try:
-            conn.execute(_mig_text("ALTER TABLE employees ADD COLUMN password VARCHAR DEFAULT 'Hdfc@2026';"))
-        except Exception:
-            pass
-        try:
-            conn.execute(_mig_text("ALTER TABLE document_chunks ADD COLUMN content_hash VARCHAR;"))
-        except Exception:
-            pass
+        for tbl_sql in [
+            "ALTER TABLE employees ADD COLUMN password VARCHAR DEFAULT 'Hdfc@2026';",
+            "ALTER TABLE document_chunks ADD COLUMN content_hash VARCHAR;",
+            "ALTER TABLE datasets ADD COLUMN owner_employee_id VARCHAR DEFAULT 'HDFC-AI-101';",
+            "ALTER TABLE document_chunks ADD COLUMN owner_employee_id VARCHAR DEFAULT 'HDFC-AI-101';",
+            "ALTER TABLE runs ADD COLUMN owner_employee_id VARCHAR DEFAULT 'HDFC-AI-101';",
+            "ALTER TABLE evaluations ADD COLUMN owner_employee_id VARCHAR DEFAULT 'HDFC-AI-101';",
+            "ALTER TABLE model_registry ADD COLUMN owner_employee_id VARCHAR DEFAULT 'HDFC-AI-101';",
+            "ALTER TABLE deployments ADD COLUMN owner_employee_id VARCHAR DEFAULT 'HDFC-AI-101';",
+            "ALTER TABLE inference_log ADD COLUMN owner_employee_id VARCHAR DEFAULT 'HDFC-AI-101';"
+        ]:
+            try:
+                conn.execute(_mig_text(tbl_sql))
+            except Exception:
+                pass
 except Exception as _e:
     print(f"Database DDL migration note: {_e}")
 

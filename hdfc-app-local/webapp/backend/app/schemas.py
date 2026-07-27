@@ -29,6 +29,7 @@ class DatasetCreate(BaseModel):
 
 class DatasetOut(BaseModel):
     id: str
+    owner_employee_id: Optional[str] = "HDFC-AI-101"
     name: str
     source: str
     purpose: str
@@ -50,6 +51,7 @@ class RunCreate(BaseModel):
 
 class RunOut(BaseModel):
     id: str
+    owner_employee_id: Optional[str] = "HDFC-AI-101"
     name: str
     serving_model: str
     embedding_model: str
@@ -72,6 +74,7 @@ class EvaluationCreate(BaseModel):
 
 class EvaluationOut(BaseModel):
     id: str
+    owner_employee_id: Optional[str] = "HDFC-AI-101"
     run_id: str
     status: str
     progress: int
@@ -92,6 +95,7 @@ class RegistryCreate(BaseModel):
 
 class RegistryOut(BaseModel):
     id: str
+    owner_employee_id: Optional[str] = "HDFC-AI-101"
     run_id: str
     evaluation_id: str
     version: str
@@ -104,6 +108,7 @@ class RegistryOut(BaseModel):
 
 class DeploymentOut(BaseModel):
     id: str
+    owner_employee_id: Optional[str] = "HDFC-AI-101"
     model_id: str
     endpoint_name: str
     status: str

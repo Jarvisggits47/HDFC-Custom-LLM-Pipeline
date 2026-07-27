@@ -8,7 +8,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent.parent.parent / ".env")
 
-from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -21,6 +21,12 @@ from .database import Base, engine, SessionLocal, get_db
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="HDFC custom LLM pipeline — control plane")
+
+def get_emp_id_from_req(request: Request) -> str:
+    emp_id = request.headers.get("X-Employee-ID") or request.query_params.get("employee_id")
+    if not emp_id or emp_id in ("null", "undefined", ""):
+        return "HDFC-AI-101"
+    return emp_id.strip()
 
 app.add_middleware(
     CORSMiddleware,
@@ -188,9 +194,11 @@ def ingest_document(db: Session, dataset_id: str, filename: str, raw_text: str) 
 
 # ---------------------------------------------------------------- datasets
 @app.post("/api/datasets", response_model=schemas.DatasetOut)
-def create_dataset(payload: schemas.DatasetCreate, db: Session = Depends(get_db)):
+def create_dataset(request: Request, payload: schemas.DatasetCreate, db: Session = Depends(get_db)):
+    emp_id = get_emp_id_from_req(request)
     ds = models.Dataset(
         id=new_id("ds"),
+        owner_employee_id=emp_id,
         name=payload.name,
         source=payload.source,
         purpose=payload.purpose,
@@ -220,8 +228,11 @@ def create_dataset(payload: schemas.DatasetCreate, db: Session = Depends(get_db)
 
 
 @app.get("/api/datasets", response_model=list[schemas.DatasetOut])
-def list_datasets(db: Session = Depends(get_db)):
-    datasets = db.query(models.Dataset).order_by(models.Dataset.created_at.desc()).all()
+def list_datasets(request: Request, db: Session = Depends(get_db)):
+    emp_id = get_emp_id_from_req(request)
+    datasets = db.query(models.Dataset).filter(
+        models.Dataset.owner_employee_id == emp_id
+    ).order_by(models.Dataset.created_at.desc()).all()
     out = []
     for ds in datasets:
         item = schemas.DatasetOut.model_validate(ds)
@@ -297,7 +308,8 @@ def approve_dataset(dataset_id: str, db: Session = Depends(get_db)):
 
 # --------------------------------------------------------------------- runs
 @app.post("/api/runs", response_model=schemas.RunOut)
-def create_run(payload: schemas.RunCreate, db: Session = Depends(get_db)):
+def create_run(request: Request, payload: schemas.RunCreate, db: Session = Depends(get_db)):
+    emp_id = get_emp_id_from_req(request)
     ds = db.query(models.Dataset).filter(models.Dataset.id == payload.dataset_id).first()
     if not ds:
         raise HTTPException(404, "dataset not found")
@@ -305,6 +317,7 @@ def create_run(payload: schemas.RunCreate, db: Session = Depends(get_db)):
         raise HTTPException(400, "dataset must be approved before it can be used in a run")
     run = models.Run(
         id=new_id("run"),
+        owner_employee_id=emp_id,
         name=payload.name,
         serving_model=payload.serving_model,
         embedding_model=payload.embedding_model,
@@ -322,8 +335,11 @@ def create_run(payload: schemas.RunCreate, db: Session = Depends(get_db)):
 
 
 @app.get("/api/runs", response_model=list[schemas.RunOut])
-def list_runs(db: Session = Depends(get_db)):
-    return db.query(models.Run).order_by(models.Run.created_at.desc()).all()
+def list_runs(request: Request, db: Session = Depends(get_db)):
+    emp_id = get_emp_id_from_req(request)
+    return db.query(models.Run).filter(
+        models.Run.owner_employee_id == emp_id
+    ).order_by(models.Run.created_at.desc()).all()
 
 
 @app.get("/api/runs/{run_id}", response_model=schemas.RunOut)
@@ -350,13 +366,14 @@ def cancel_run(run_id: str, db: Session = Depends(get_db)):
 
 # ------------------------------------------------------------- evaluations
 @app.post("/api/evaluations", response_model=schemas.EvaluationOut)
-def create_evaluation(payload: schemas.EvaluationCreate, db: Session = Depends(get_db)):
+def create_evaluation(request: Request, payload: schemas.EvaluationCreate, db: Session = Depends(get_db)):
+    emp_id = get_emp_id_from_req(request)
     run = db.query(models.Run).filter(models.Run.id == payload.run_id).first()
     if not run:
         raise HTTPException(404, "run not found")
     if run.status != "completed":
         raise HTTPException(400, "run must complete before it can be evaluated")
-    ev = models.Evaluation(id=new_id("eval"), run_id=run.id, status="queued", progress=0)
+    ev = models.Evaluation(id=new_id("eval"), owner_employee_id=emp_id, run_id=run.id, status="queued", progress=0)
     db.add(ev)
     db.commit()
     db.refresh(ev)
@@ -366,8 +383,11 @@ def create_evaluation(payload: schemas.EvaluationCreate, db: Session = Depends(g
 
 
 @app.get("/api/evaluations", response_model=list[schemas.EvaluationOut])
-def list_evaluations(db: Session = Depends(get_db)):
-    return db.query(models.Evaluation).order_by(models.Evaluation.created_at.desc()).all()
+def list_evaluations(request: Request, db: Session = Depends(get_db)):
+    emp_id = get_emp_id_from_req(request)
+    return db.query(models.Evaluation).filter(
+        models.Evaluation.owner_employee_id == emp_id
+    ).order_by(models.Evaluation.created_at.desc()).all()
 
 
 @app.get("/api/evaluations/{evaluation_id}", response_model=schemas.EvaluationOut)
@@ -394,7 +414,8 @@ def cancel_evaluation(evaluation_id: str, db: Session = Depends(get_db)):
 
 # ------------------------------------------------------------------ registry
 @app.post("/api/registry", response_model=schemas.RegistryOut)
-def register_model(payload: schemas.RegistryCreate, db: Session = Depends(get_db)):
+def register_model(request: Request, payload: schemas.RegistryCreate, db: Session = Depends(get_db)):
+    emp_id = get_emp_id_from_req(request)
     run = db.query(models.Run).filter(models.Run.id == payload.run_id).first()
     ev = db.query(models.Evaluation).filter(models.Evaluation.id == payload.evaluation_id).first()
     if not run or not ev:
@@ -421,6 +442,7 @@ def register_model(payload: schemas.RegistryCreate, db: Session = Depends(get_db
     }
     entry = models.ModelRegistryEntry(
         id=new_id("model"),
+        owner_employee_id=emp_id,
         run_id=run.id,
         evaluation_id=ev.id,
         version=version,
@@ -434,12 +456,16 @@ def register_model(payload: schemas.RegistryCreate, db: Session = Depends(get_db
 
 
 @app.get("/api/registry", response_model=list[schemas.RegistryOut])
-def list_registry(db: Session = Depends(get_db)):
-    return db.query(models.ModelRegistryEntry).order_by(models.ModelRegistryEntry.created_at.desc()).all()
+def list_registry(request: Request, db: Session = Depends(get_db)):
+    emp_id = get_emp_id_from_req(request)
+    return db.query(models.ModelRegistryEntry).filter(
+        models.ModelRegistryEntry.owner_employee_id == emp_id
+    ).order_by(models.ModelRegistryEntry.created_at.desc()).all()
 
 
 @app.post("/api/registry/{model_id}/promote", response_model=schemas.DeploymentOut)
-def promote_model(model_id: str, db: Session = Depends(get_db)):
+def promote_model(request: Request, model_id: str, db: Session = Depends(get_db)):
+    emp_id = get_emp_id_from_req(request)
     entry = db.query(models.ModelRegistryEntry).filter(models.ModelRegistryEntry.id == model_id).first()
     if not entry:
         raise HTTPException(404, "model not found")
@@ -451,6 +477,7 @@ def promote_model(model_id: str, db: Session = Depends(get_db)):
 
     deployment = models.Deployment(
         id=new_id("dep"),
+        owner_employee_id=emp_id,
         model_id=entry.id,
         endpoint_name=f"banking-llm-{entry.version}",
         status="canary",
@@ -464,8 +491,11 @@ def promote_model(model_id: str, db: Session = Depends(get_db)):
 
 # ---------------------------------------------------------------- deployments
 @app.get("/api/deployments", response_model=list[schemas.DeploymentOut])
-def list_deployments(db: Session = Depends(get_db)):
-    return db.query(models.Deployment).order_by(models.Deployment.created_at.desc()).all()
+def list_deployments(request: Request, db: Session = Depends(get_db)):
+    emp_id = get_emp_id_from_req(request)
+    return db.query(models.Deployment).filter(
+        models.Deployment.owner_employee_id == emp_id
+    ).order_by(models.Deployment.created_at.desc()).all()
 
 
 @app.post("/api/deployments/{deployment_id}/expand", response_model=schemas.DeploymentOut)
@@ -496,15 +526,14 @@ def rollback_deployment(deployment_id: str, db: Session = Depends(get_db)):
 
 # ----------------------------------------------------------------- inference
 @app.post("/api/inference", response_model=schemas.InferenceResponse)
-def infer(payload: schemas.InferenceRequest, db: Session = Depends(get_db)):
+def infer(request: Request, payload: schemas.InferenceRequest, db: Session = Depends(get_db)):
+    emp_id = get_emp_id_from_req(request)
     served_by = "base model (no active deployment, no banking context)"
     retrieved_chunks: list[str] = []
     sources: list[str] = []
     citations: list[str] = []
     confidence = 0.0
 
-    # Guardrails run BEFORE any model call — deterministic, cheap, and
-    # catches prompt-injection attempts without spending a generation call.
     guard = local_llm.Guardrails.check(payload.prompt)
 
     start = time.time()
@@ -550,6 +579,7 @@ def infer(payload: schemas.InferenceRequest, db: Session = Depends(get_db)):
 
     log = models.InferenceLog(
         id=new_id("trace"),
+        owner_employee_id=emp_id,
         deployment_id=payload.deployment_id,
         prompt=payload.prompt,
         response=answer,
@@ -576,8 +606,11 @@ def infer(payload: schemas.InferenceRequest, db: Session = Depends(get_db)):
 
 
 @app.get("/api/monitoring")
-def monitoring(db: Session = Depends(get_db)):
-    logs = db.query(models.InferenceLog).all()
+def monitoring(request: Request, db: Session = Depends(get_db)):
+    emp_id = get_emp_id_from_req(request)
+    logs = db.query(models.InferenceLog).filter(
+        models.InferenceLog.owner_employee_id == emp_id
+    ).all()
     total = len(logs)
     avg_latency = int(sum(l.latency_ms for l in logs) / total) if total else 0
     escalations = sum(1 for l in logs if l.escalation_required)
@@ -705,8 +738,11 @@ def verify_employee(payload: schemas.EmployeeVerifyRequest, db: Session = Depend
 
 
 @app.get("/api/audit-logs", response_model=list[schemas.AuditLogOut])
-def list_audit_logs(db: Session = Depends(get_db)):
-    return db.query(models.AuditLog).order_by(models.AuditLog.created_at.desc()).limit(50).all()
+def list_audit_logs(request: Request, db: Session = Depends(get_db)):
+    emp_id = get_emp_id_from_req(request)
+    return db.query(models.AuditLog).filter(
+        models.AuditLog.employee_id == emp_id
+    ).order_by(models.AuditLog.created_at.desc()).limit(50).all()
 
 
 @app.post("/api/audit-logs", response_model=schemas.AuditLogOut)

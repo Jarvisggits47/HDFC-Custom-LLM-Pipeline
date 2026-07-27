@@ -10,6 +10,7 @@ def now():
 class Dataset(Base):
     __tablename__ = "datasets"
     id = Column(String, primary_key=True)
+    owner_employee_id = Column(String, default="HDFC-AI-101", index=True)
     name = Column(String, nullable=False)
     source = Column(String, nullable=False)
     purpose = Column(String, nullable=False)
@@ -40,6 +41,7 @@ class DocumentChunk(Base):
     __tablename__ = "document_chunks"
     id = Column(String, primary_key=True)
     dataset_id = Column(String, ForeignKey("datasets.id"))
+    owner_employee_id = Column(String, default="HDFC-AI-101", index=True)
     source_filename = Column(String, nullable=False)
     chunk_index = Column(Integer, default=0)
     page = Column(Integer, default=1)
@@ -59,6 +61,7 @@ class Run(Base):
     see webapp/README.md for why, and for the real-LoRA swap-in path."""
     __tablename__ = "runs"
     id = Column(String, primary_key=True)
+    owner_employee_id = Column(String, default="HDFC-AI-101", index=True)
     name = Column(String, nullable=False)
     serving_model = Column(String, nullable=False)  # e.g. HuggingFaceTB/SmolLM2-360M-Instruct
     embedding_model = Column(String, default="BAAI/bge-small-en-v1.5")
@@ -80,6 +83,7 @@ class Evaluation(Base):
     fixture case and scores the actual generated text."""
     __tablename__ = "evaluations"
     id = Column(String, primary_key=True)
+    owner_employee_id = Column(String, default="HDFC-AI-101", index=True)
     run_id = Column(String, ForeignKey("runs.id"))
     status = Column(String, default="queued")  # queued -> running -> completed / failed
     progress = Column(Integer, default=0)
@@ -93,6 +97,7 @@ class Evaluation(Base):
 class ModelRegistryEntry(Base):
     __tablename__ = "model_registry"
     id = Column(String, primary_key=True)
+    owner_employee_id = Column(String, default="HDFC-AI-101", index=True)
     run_id = Column(String, ForeignKey("runs.id"))
     evaluation_id = Column(String, ForeignKey("evaluations.id"))
     version = Column(String, nullable=False)
@@ -104,6 +109,7 @@ class ModelRegistryEntry(Base):
 class Deployment(Base):
     __tablename__ = "deployments"
     id = Column(String, primary_key=True)
+    owner_employee_id = Column(String, default="HDFC-AI-101", index=True)
     model_id = Column(String, ForeignKey("model_registry.id"))
     endpoint_name = Column(String, nullable=False)
     status = Column(String, default="canary")  # canary -> active -> rolled_back
@@ -114,6 +120,7 @@ class Deployment(Base):
 class InferenceLog(Base):
     __tablename__ = "inference_log"
     id = Column(String, primary_key=True)
+    owner_employee_id = Column(String, default="HDFC-AI-101", index=True)
     deployment_id = Column(String, ForeignKey("deployments.id"), nullable=True)
     prompt = Column(String)
     response = Column(String)

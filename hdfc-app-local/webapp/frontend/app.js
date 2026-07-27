@@ -39,9 +39,17 @@ function safe(val, fallback = "—") {
 }
 
 async function api(path, opts = {}) {
+  const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
+  const empId = u.empId || "HDFC-AI-101";
+  const customHeaders = opts.headers || {};
+
   const res = await fetch(API + path, {
-    headers: { "Content-Type": "application/json" },
-    ...opts
+    ...opts,
+    headers: {
+      "Content-Type": "application/json",
+      "X-Employee-ID": empId,
+      ...customHeaders
+    }
   });
   if (!res.ok) {
     const detail = await res.json().catch(() => ({}));
