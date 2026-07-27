@@ -3,7 +3,9 @@
    Premium dark redesign
    =================================================== */
 
-const API = "/api";
+const API = (typeof window !== "undefined" && window.location.hostname.includes("github.io"))
+  ? "https://hdfc-llm-backend.onrender.com/api"
+  : "/api";
 let _health = null;
 
 // ---- Lucide icons ----
