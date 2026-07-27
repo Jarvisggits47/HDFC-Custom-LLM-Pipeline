@@ -57,14 +57,38 @@ async function api(path, opts = {}) {
   });
   if (!res.ok) {
     const detail = await res.json().catch(() => ({}));
-    if (res.status === 401 && detail.detail && detail.detail.includes("Session has been terminated")) {
+    if (res.status === 401 && detail.detail && (detail.detail.includes("Session has been terminated") || detail.detail.includes("terminated"))) {
       showToast("❌ Access Revoked: Session was terminated remotely.", "bad");
-      doLogout();
+      resetUserSession();
+      sessionStorage.removeItem(USER_KEY);
+      setTimeout(() => window.location.reload(), 800);
     }
     throw new Error(detail.detail || res.statusText || "Request failed");
   }
   return res.json();
 }
+
+// Background Heartbeat: Auto-checks session validity every 5 seconds for active sessions
+setInterval(async () => {
+  const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
+  if (u && u.sessionToken && u.sessionToken.startsWith("sess-")) {
+    try {
+      const r = await fetch(API + "/auth/active-sessions", {
+        headers: {
+          "Content-Type": "application/json",
+          "X-Employee-ID": u.empId || "HDFC-AI-101",
+          "X-Session-Token": u.sessionToken
+        }
+      });
+      if (r.status === 401) {
+        showToast("❌ Access Revoked: Session was terminated remotely.", "bad");
+        resetUserSession();
+        sessionStorage.removeItem(USER_KEY);
+        setTimeout(() => window.location.reload(), 800);
+      }
+    } catch (e) {}
+  }
+}, 5000);
 
 // ── Sparkline helpers ────────────────────────────────────────────────────────
 function generateSparkData(peak, index) {
