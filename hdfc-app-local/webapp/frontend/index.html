@@ -38,7 +38,7 @@
       </div>
 
       <div class="float-field" id="reg-emp-field" style="display:none">
-        <input id="login-empid" type="text" placeholder="e.g. HDFC-AI-101 or DEV 3301" autocomplete="off">
+        <input id="login-empid" type="text" placeholder=" " autocomplete="off">
         <label for="login-empid">HDFC Unique Employee ID</label>
         <i data-lucide="shield-check"></i>
       </div>
@@ -764,11 +764,11 @@
       <div style="display:flex;flex-direction:column;gap:10px">
         <div>
           <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">HDFC Unique Employee ID</label>
-          <input id="forgot-empid" type="text" class="input" style="width:100%" placeholder="e.g. HDFC-AI-101 or DEV 3301">
+          <input id="forgot-empid" type="text" class="input" style="width:100%" placeholder="e.g. HDFC-EMP-1001">
         </div>
         <div>
           <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">Registered Corporate Email</label>
-          <input id="forgot-email" type="email" class="input" style="width:100%" placeholder="e.g. jarvisanand85@gmail.com or abhi@hdfcbank.com">
+          <input id="forgot-email" type="email" class="input" style="width:100%" placeholder="e.g. officer@hdfcbank.com">
         </div>
         <div>
           <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">New Password</label>
@@ -809,8 +809,17 @@
           <div style="font-size:12px;font-weight:600;color:var(--text-main)"><i data-lucide="shield-alert" style="width:13px;height:13px;color:var(--accent);vertical-align:-1px"></i> Active Device Sessions</div>
           <button type="button" class="btn-secondary" style="font-size:11px;padding:4px 8px" onclick="loadActiveSessions()">Refresh</button>
         </div>
-        <div id="active-sessions-list" style="max-height:180px;overflow-y:auto;border:1px solid var(--border-light);border-radius:6px">
+        <div id="active-sessions-list" style="max-height:140px;overflow-y:auto;border:1px solid var(--border-light);border-radius:6px">
           <div style="font-size:11px;color:var(--text-muted);text-align:center;padding:12px">Loading active device sessions...</div>
+        </div>
+      </div>
+
+      <div style="margin-top:14px">
+        <div style="font-size:12px;font-weight:600;color:var(--text-main);margin-bottom:8px">
+          <i data-lucide="history" style="width:13px;height:13px;color:var(--text-muted);vertical-align:-1px"></i> Recently Killed / Terminated Sessions
+        </div>
+        <div id="terminated-sessions-list" style="max-height:120px;overflow-y:auto;border:1px solid var(--border-light);border-radius:6px;background:rgba(239,68,68,0.03)">
+          <div style="font-size:11px;color:var(--text-muted);text-align:center;padding:10px">No terminated sessions recorded.</div>
         </div>
       </div>
     </div>
@@ -834,7 +843,7 @@
       <div style="display:flex;flex-direction:column;gap:12px">
         <div>
           <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">Registered Corporate Email / ID</label>
-          <input id="temp-login-username" type="text" class="input" style="width:100%" placeholder="e.g. jarvisanand85@gmail.com or HDFC-AI-101">
+          <input id="temp-login-username" type="text" class="input" style="width:100%" placeholder="e.g. officer@hdfcbank.com or HDFC-EMP-1001">
         </div>
         <div>
           <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">15-Minute Temporary Passcode</label>

@@ -479,36 +479,57 @@ async function generateTempPasscode() {
 
 async function loadActiveSessions() {
   const el = document.getElementById("active-sessions-list");
+  const termEl = document.getElementById("terminated-sessions-list");
   if (!el) return;
   try {
     const sessions = await api("/auth/active-sessions");
     if (!sessions || !sessions.length) {
       el.innerHTML = `<div style="font-size:11px;color:var(--text-muted);text-align:center;padding:12px">No active device sessions found.</div>`;
-      return;
-    }
-    el.innerHTML = sessions.map(s => {
-      const isMaster = s.login_type === "master";
-      const actionBtn = isMaster
-        ? `<span style="font-size:10px;font-weight:600;color:var(--ok);padding:3px 8px;background:rgba(16,185,129,0.12);border-radius:4px;border:1px solid rgba(16,185,129,0.3)"><i data-lucide="shield-check" style="width:11px;height:11px;vertical-align:-1px;margin-right:2px"></i> Master Account</span>`
-        : `<button type="button" class="btn-secondary" style="font-size:10px;padding:3px 8px;color:var(--accent);border-color:rgba(239,68,68,0.3)" onclick="terminateSession('${s.id}')">
-             <i data-lucide="power" style="width:11px;height:11px"></i> Kill Session
-           </button>`;
+    } else {
+      el.innerHTML = sessions.map(s => {
+        const isMaster = s.login_type === "master";
+        const actionBtn = isMaster
+          ? `<span style="font-size:10px;font-weight:600;color:var(--ok);padding:3px 8px;background:rgba(16,185,129,0.12);border-radius:4px;border:1px solid rgba(16,185,129,0.3)"><i data-lucide="shield-check" style="width:11px;height:11px;vertical-align:-1px;margin-right:2px"></i> Master Account</span>`
+          : `<button type="button" class="btn-secondary" style="font-size:10px;padding:3px 8px;color:var(--accent);border-color:rgba(239,68,68,0.3)" onclick="terminateSession('${s.id}')">
+               <i data-lucide="power" style="width:11px;height:11px"></i> Kill Session
+             </button>`;
 
-      return `
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-bottom:1px solid var(--border-light);background:var(--bg-main)">
-          <div>
-            <div style="font-size:11.5px;font-weight:600;color:var(--text-main)">
-              <i data-lucide="${isMaster ? 'laptop' : 'smartphone'}" style="width:12px;height:12px;color:${isMaster ? 'var(--ok)' : 'var(--blue)'};vertical-align:-1px"></i> ${esc(s.device_info)}
+        return `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-bottom:1px solid var(--border-light);background:var(--bg-main)">
+            <div>
+              <div style="font-size:11.5px;font-weight:600;color:var(--text-main)">
+                <i data-lucide="${isMaster ? 'laptop' : 'smartphone'}" style="width:12px;height:12px;color:${isMaster ? 'var(--ok)' : 'var(--blue)'};vertical-align:-1px"></i> ${esc(s.device_info)}
+              </div>
+              <div style="font-size:10px;color:var(--text-muted);margin-top:2px">
+                Type: <span style="color:${isMaster ? 'var(--ok)' : 'var(--blue)'}">${esc(s.login_type)}</span> • IP: ${esc(s.ip_address)} • ${new Date(s.created_at).toLocaleTimeString()}
+              </div>
             </div>
-            <div style="font-size:10px;color:var(--text-muted);margin-top:2px">
-              Type: <span style="color:${isMaster ? 'var(--ok)' : 'var(--blue)'}">${esc(s.login_type)}</span> • IP: ${esc(s.ip_address)} • ${new Date(s.created_at).toLocaleTimeString()}
-            </div>
+            ${actionBtn}
           </div>
-          ${actionBtn}
-        </div>
-      `;
-    }).join("");
-    lucide.createIcons({ nodes: [el] });
+        `;
+      }).join("");
+      lucide.createIcons({ nodes: [el] });
+    }
+
+    if (termEl) {
+      const termSessions = await api("/auth/terminated-sessions").catch(() => []);
+      if (!termSessions || !termSessions.length) {
+        termEl.innerHTML = `<div style="font-size:11px;color:var(--text-muted);text-align:center;padding:10px">No terminated sessions recorded.</div>`;
+      } else {
+        termEl.innerHTML = termSessions.map(s => `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--border-light)">
+            <div>
+              <div style="font-size:11px;font-weight:600;color:var(--text-secondary)">
+                <i data-lucide="x-circle" style="width:11px;height:11px;color:var(--accent);vertical-align:-1px"></i> ${esc(s.device_info)}
+              </div>
+              <div style="font-size:9.5px;color:var(--text-muted)">IP: ${esc(s.ip_address)} • ${new Date(s.created_at).toLocaleTimeString()}</div>
+            </div>
+            <span style="font-size:9.5px;font-weight:700;color:var(--accent);padding:2px 6px;background:rgba(239,68,68,0.12);border-radius:4px">TERMINATED</span>
+          </div>
+        `).join("");
+        lucide.createIcons({ nodes: [termEl] });
+      }
+    }
   } catch (err) {
     el.innerHTML = `<div style="font-size:11px;color:var(--text-muted);text-align:center;padding:12px">Failed to load active sessions.</div>`;
   }
@@ -787,9 +808,18 @@ document.querySelectorAll(".nav-item[data-tab]").forEach(btn => {
     document.querySelectorAll(".nav-item").forEach(b => b.classList.remove("active"));
     document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
     btn.classList.add("active");
-    const tabEl = document.getElementById(btn.dataset.tab);
+    const tabId = btn.dataset.tab;
+    const tabEl = document.getElementById(tabId);
     if (tabEl) tabEl.classList.add("active");
-    refreshAll();
+
+    // Zero-flicker lazy rendering of active tab only
+    if (tabId === "overview") renderDashboard();
+    else if (tabId === "datasets") renderDatasets();
+    else if (tabId === "runs") renderRuns();
+    else if (tabId === "evaluations") renderEvaluations();
+    else if (tabId === "registry") renderRegistry();
+    else if (tabId === "deployments") renderDeployments();
+    else if (tabId === "monitoring") renderMonitoring();
   });
 });
 

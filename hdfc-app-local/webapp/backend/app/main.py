@@ -756,6 +756,16 @@ def list_active_sessions(request: Request, db: Session = Depends(get_db)):
     return sessions
 
 
+@app.get("/api/auth/terminated-sessions", response_model=list[schemas.UserSessionOut])
+def list_terminated_sessions(request: Request, db: Session = Depends(get_db)):
+    emp_id = get_emp_id_from_req(request, db)
+    sessions = db.query(models.UserSession).filter(
+        models.UserSession.employee_id == emp_id,
+        models.UserSession.status == "terminated",
+    ).order_by(models.UserSession.created_at.desc()).limit(5).all()
+    return sessions
+
+
 @app.post("/api/auth/terminate-session/{session_id}")
 def terminate_session(request: Request, session_id: str, db: Session = Depends(get_db)):
     emp_id = get_emp_id_from_req(request, db)
