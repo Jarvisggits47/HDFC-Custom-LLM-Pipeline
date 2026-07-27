@@ -696,7 +696,7 @@
           </select>
         </div>
         <div style="margin-top:4px">
-          <button type="button" class="btn-secondary" style="width:100%;color:var(--warn)" onclick="openUpdatePasswordModal()"><i data-lucide="key"></i> Change / Update Account Password</button>
+          <button type="button" class="btn-secondary" style="width:100%;color:var(--warn)" onclick="openPasswordModal('update')"><i data-lucide="key"></i> Security &amp; Password Options</button>
         </div>
       </div>
     </div>
@@ -707,53 +707,28 @@
   </div>
 </div>
 
-<!-- Forgot Password / Account Recovery Modal (From Sign In Screen) -->
-<div id="forgot-password-modal" class="modal-overlay" style="display:none">
-  <div class="modal-card" style="max-width:440px">
+<!-- UNIFIED PASSWORD MANAGEMENT MODAL (Supports both Update & Forgot Password) -->
+<div id="password-modal" class="modal-overlay" style="display:none">
+  <div class="modal-card" style="max-width:460px">
     <div class="modal-head">
-      <div class="modal-title"><i data-lucide="key-round"></i> Forgot Password &amp; Account Recovery</div>
-      <button class="modal-close" onclick="closeForgotPasswordModal()">&times;</button>
+      <div class="modal-title"><i data-lucide="shield-check"></i> HDFC Password &amp; Account Security</div>
+      <button class="modal-close" onclick="closePasswordModal()">&times;</button>
     </div>
-    <div class="modal-body" style="padding:16px">
-      <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">
-        To recover your credentials, enter your registered <b>Corporate Email</b> and <b>HDFC Unique Employee ID</b>:
-      </p>
-      <div style="display:flex;flex-direction:column;gap:10px">
-        <div>
-          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">Registered Corporate Email</label>
-          <input id="forgot-email" type="email" class="input" style="width:100%" placeholder="e.g. abhi@hdfcbank.com">
-        </div>
-        <div>
-          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">HDFC Unique Employee ID</label>
-          <input id="forgot-empid" type="text" class="input" style="width:100%" placeholder="e.g. HDFC-AI-101 or DEV 3301">
-        </div>
-        <div>
-          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">New Password</label>
-          <input id="forgot-new-pass" type="password" class="input" style="width:100%" placeholder="Enter new secure password">
-        </div>
-        <div>
-          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">Confirm New Password</label>
-          <input id="forgot-confirm-pass" type="password" class="input" style="width:100%" placeholder="Re-enter new secure password">
-        </div>
-      </div>
-    </div>
-    <div class="modal-foot">
-      <button type="button" class="btn-secondary" onclick="closeForgotPasswordModal()">Cancel</button>
-      <button type="button" class="btn-primary" onclick="submitForgotPassword()"><i data-lucide="check-circle"></i> Verify &amp; Reset Password</button>
-    </div>
-  </div>
-</div>
 
-<!-- Update Password Modal (From Inside App / Profile Settings) -->
-<div id="update-password-modal" class="modal-overlay" style="display:none">
-  <div class="modal-card" style="max-width:440px">
-    <div class="modal-head">
-      <div class="modal-title"><i data-lucide="lock"></i> Update Account Password</div>
-      <button class="modal-close" onclick="closeUpdatePasswordModal()">&times;</button>
+    <!-- Modal Sub-Tabs -->
+    <div style="display:flex;border-bottom:1px solid var(--border-light);background:var(--bg-card-sub)">
+      <button type="button" id="tab-pass-update-btn" class="sub-tab active" style="flex:1;padding:10px;text-align:center" onclick="switchPasswordTab('update')">
+        <i data-lucide="lock" style="width:13px;height:13px;vertical-align:-1px;margin-right:4px"></i> Update Password
+      </button>
+      <button type="button" id="tab-pass-forgot-btn" class="sub-tab" style="flex:1;padding:10px;text-align:center" onclick="switchPasswordTab('forgot')">
+        <i data-lucide="key-round" style="width:13px;height:13px;vertical-align:-1px;margin-right:4px"></i> Forgot Password / Recovery
+      </button>
     </div>
-    <div class="modal-body" style="padding:16px">
+
+    <!-- TAB 1: UPDATE PASSWORD -->
+    <div id="pass-panel-update" class="modal-body" style="padding:16px">
       <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">
-        Update your account password below:
+        Update your active account password below:
       </p>
       <div style="display:flex;flex-direction:column;gap:10px">
         <div>
@@ -769,10 +744,39 @@
           <input id="update-confirm-pass" type="password" class="input" style="width:100%" placeholder="Re-enter new password">
         </div>
       </div>
+      <div style="margin-top:16px;display:flex;justify-content:flex-end;gap:8px">
+        <button type="button" class="btn-secondary" onclick="closePasswordModal()">Cancel</button>
+        <button type="button" class="btn-primary" onclick="submitUpdatePassword()"><i data-lucide="check"></i> Update Password</button>
+      </div>
     </div>
-    <div class="modal-foot">
-      <button type="button" class="btn-secondary" onclick="closeUpdatePasswordModal()">Cancel</button>
-      <button type="button" class="btn-primary" onclick="submitUpdatePassword()"><i data-lucide="check"></i> Update Password</button>
+
+    <!-- TAB 2: FORGOT PASSWORD / ACCOUNT RECOVERY -->
+    <div id="pass-panel-forgot" class="modal-body" style="padding:16px;display:none">
+      <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">
+        To reset your password, enter your <b>HDFC Unique Employee ID</b> and <b>Corporate Email</b>:
+      </p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div>
+          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">HDFC Unique Employee ID</label>
+          <input id="forgot-empid" type="text" class="input" style="width:100%" placeholder="e.g. HDFC-AI-101 or DEV 3301">
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">Registered Corporate Email</label>
+          <input id="forgot-email" type="email" class="input" style="width:100%" placeholder="e.g. jarvisanand85@gmail.com or abhi@hdfcbank.com">
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">New Password</label>
+          <input id="forgot-new-pass" type="password" class="input" style="width:100%" placeholder="Enter new secure password">
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">Confirm New Password</label>
+          <input id="forgot-confirm-pass" type="password" class="input" style="width:100%" placeholder="Re-enter new secure password">
+        </div>
+      </div>
+      <div style="margin-top:16px;display:flex;justify-content:flex-end;gap:8px">
+        <button type="button" class="btn-secondary" onclick="closePasswordModal()">Cancel</button>
+        <button type="button" class="btn-primary" onclick="submitForgotPassword()"><i data-lucide="check-circle"></i> Verify &amp; Reset Password</button>
+      </div>
     </div>
   </div>
 </div>

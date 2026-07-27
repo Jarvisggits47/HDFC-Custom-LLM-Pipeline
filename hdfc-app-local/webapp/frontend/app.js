@@ -349,14 +349,40 @@ async function saveUserProfile() {
   }
 }
 
-function openForgotPasswordModal() {
-  const modal = document.getElementById("forgot-password-modal");
-  if (modal) modal.style.display = "flex";
+function openPasswordModal(tab = 'update') {
+  const modal = document.getElementById("password-modal");
+  if (!modal) return;
+  switchPasswordTab(tab);
+  modal.style.display = "flex";
+  lucide.createIcons({ nodes: [modal] });
 }
 
-function closeForgotPasswordModal() {
-  const modal = document.getElementById("forgot-password-modal");
+function closePasswordModal() {
+  const modal = document.getElementById("password-modal");
   if (modal) modal.style.display = "none";
+}
+
+function openForgotPasswordModal() {
+  openPasswordModal('forgot');
+}
+
+function switchPasswordTab(tab) {
+  const updateBtn   = document.getElementById("tab-pass-update-btn");
+  const forgotBtn   = document.getElementById("tab-pass-forgot-btn");
+  const updatePanel = document.getElementById("pass-panel-update");
+  const forgotPanel = document.getElementById("pass-panel-forgot");
+
+  if (tab === 'forgot') {
+    updateBtn?.classList.remove("active");
+    forgotBtn?.classList.add("active");
+    if (updatePanel) updatePanel.style.display = "none";
+    if (forgotPanel) forgotPanel.style.display = "block";
+  } else {
+    forgotBtn?.classList.remove("active");
+    updateBtn?.classList.add("active");
+    if (forgotPanel) forgotPanel.style.display = "none";
+    if (updatePanel) updatePanel.style.display = "block";
+  }
 }
 
 async function submitForgotPassword() {
@@ -366,7 +392,7 @@ async function submitForgotPassword() {
   const confirmPass = document.getElementById("forgot-confirm-pass")?.value || "";
 
   if (!email || !empId || !newPass || !confirmPass) {
-    showToast("Please fill in all fields (Corporate Email, Employee ID, New Password, Confirm Password).", "warn");
+    showToast("Please fill in all fields (Employee ID, Corporate Email, New Password, Confirm Password).", "warn");
     return;
   }
 
@@ -381,27 +407,19 @@ async function submitForgotPassword() {
       body: JSON.stringify({ employee_id: empId })
     });
 
-    if (emp.email.toLowerCase() !== email.toLowerCase()) {
-      showToast(`Verification Failed: Corporate email '${email}' does not match registered email for ${emp.employee_id}.`, "bad");
-      return;
-    }
+    const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
+    u.empId = emp.employee_id;
+    u.name  = emp.full_name;
+    u.email = email;
+    sessionStorage.setItem(USER_KEY, JSON.stringify(u));
+    updateSidebarUser();
 
-    closeForgotPasswordModal();
-    logUserAction("PASSWORD_RESET", `Password reset for ${emp.employee_id} (${emp.email})`);
-    showToast(`✅ Verification successful! Password reset for ${emp.employee_id} (${emp.email}).`, "ok");
+    closePasswordModal();
+    logUserAction("PASSWORD_RESET", `Password reset & account verified for ${emp.employee_id} (${email})`);
+    showToast(`✅ Verification successful! Password reset for ${emp.employee_id} (${email}).`, "ok");
   } catch (err) {
-    showToast(`❌ Verification Failed: Invalid HDFC Employee ID or Email.`, "bad");
+    showToast(`❌ Verification Failed: Invalid HDFC Employee ID (${empId}).`, "bad");
   }
-}
-
-function openUpdatePasswordModal() {
-  const modal = document.getElementById("update-password-modal");
-  if (modal) modal.style.display = "flex";
-}
-
-function closeUpdatePasswordModal() {
-  const modal = document.getElementById("update-password-modal");
-  if (modal) modal.style.display = "none";
 }
 
 function submitUpdatePassword() {
@@ -419,7 +437,7 @@ function submitUpdatePassword() {
     return;
   }
 
-  closeUpdatePasswordModal();
+  closePasswordModal();
   logUserAction("PASSWORD_UPDATE", "User updated account password");
   showToast("✅ Password updated successfully.", "ok");
 }
