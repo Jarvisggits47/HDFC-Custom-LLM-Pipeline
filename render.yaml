@@ -13,3 +13,7 @@ services:
         value: "https://jarvisggits47.github.io"
       - key: PIPELINE_DB_PATH
         value: "./pipeline.db"
+      - key: DISABLE_PRELOAD
+        value: "1"
+      - key: RENDER
+        value: "true"

@@ -986,8 +986,11 @@ def cancel_evaluation(evaluation_id: str):
 
 def preload_models_background():
     """Warm model and embedder caches at server startup so the first call doesn't
-    block on a cold load. Both are always preloaded — embedder for retrieval,
-    LLM for generation."""
+    block on a cold load. Skipped on memory-constrained free tiers."""
+    if os.environ.get("DISABLE_PRELOAD") == "1" or os.environ.get("RENDER") == "true":
+        _log.info("[preload] skipped background model preloading to conserve RAM on free tier")
+        return
+
     def _warm():
         _log.info("[preload] starting warm-up  device=%s", DEVICE)
         t0 = time.time()
