@@ -544,9 +544,10 @@ if (loginForm) {
 
         const user = { empId: emp.employee_id, name: emp.full_name, role: emp.role, email: emp.email, loginTime: Date.now() };
         sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+        resetUserSession();
         showApp();
         updateSidebarUser();
-        bootApp();
+        bootApp(true);
         logUserAction("USER_REGISTER", `Registered account: ${emp.full_name} (${emp.employee_id})`);
         showToast(`Account registered & verified! Welcome, ${emp.full_name} (${emp.employee_id}).`, "ok");
       } catch (err) {
@@ -565,9 +566,10 @@ if (loginForm) {
 
         const user = { empId: emp.employee_id, name: emp.full_name, role: emp.role, email: emp.email, loginTime: Date.now() };
         sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+        resetUserSession();
         showApp();
         updateSidebarUser();
-        bootApp();
+        bootApp(true);
         logUserAction("USER_LOGIN", `${emp.full_name} (${emp.employee_id}) signed in`);
         showToast(`Welcome back, ${emp.full_name} (${emp.employee_id}).`, "ok");
       } catch (err) {
@@ -590,8 +592,9 @@ if (pwToggle) {
 
 function doLogout() {
   sessionStorage.removeItem(USER_KEY);
+  resetUserSession();
   showLogin();
-  showToast("Signed out.", "info");
+  showToast("Signed out successfully.", "info");
 }
 
 
@@ -2367,14 +2370,29 @@ async function refreshAll() {
 // ===================================================
 
 let _booted = false;
-function bootApp() {
-  if (_booted) return;
+
+function resetUserSession() {
+  _booted = false;
+  if (typeof _chatHistory !== "undefined") _chatHistory = [];
+  const chatMessages = document.getElementById("chat-messages");
+  if (chatMessages) chatMessages.innerHTML = "";
+  const chatTitle = document.getElementById("chat-title");
+  if (chatTitle) chatTitle.textContent = "New Chat";
+  const userLogs = document.getElementById("activity-feed");
+  if (userLogs) userLogs.innerHTML = "";
+}
+
+function bootApp(forceReset = false) {
+  if (_booted && !forceReset) return;
   _booted = true;
   renderQuickChips();
-  newConversation();
+  if (typeof newConversation === "function") newConversation();
   refreshAll();
-  setInterval(checkHealth, 10000);
-  setInterval(refreshAll, 30000);
+  if (!window._intervalsBooted) {
+    window._intervalsBooted = true;
+    setInterval(checkHealth, 10000);
+    setInterval(refreshAll, 30000);
+  }
 }
 
 checkLogin();
