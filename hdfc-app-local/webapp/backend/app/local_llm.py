@@ -317,33 +317,32 @@ def call_model(
             "A generation is already in progress. CPU inference is single-request only — please retry in a few seconds."
         )
 
-def _call_hf_api(model_name: str, system_prompt: str, user_prompt: str, max_tokens: int = 200) -> Optional[str]:
+def _call_hf_api(model_name: str, system_prompt: str, user_prompt: str, max_tokens: int = 250) -> Optional[str]:
     """Call Hugging Face Serverless API for real model text generation."""
+    hf_token = os.environ.get("HF_TOKEN")
+    if not hf_token:
+        return None
     try:
-        url = "https://router.huggingface.co/hf-inference/v1/chat/completions"
-        hf_token = os.environ.get("HF_TOKEN")
-        headers = {"Content-Type": "application/json"}
-        if hf_token:
-            headers["Authorization"] = f"Bearer {hf_token}"
-            
-        payload = {
-            "model": "Qwen/Qwen2.5-Coder-32B-Instruct",
-            "messages": [
+        from huggingface_hub import InferenceClient
+        client = InferenceClient(provider="together", token=hf_token)
+        target_model = "meta-llama/Llama-3.3-70B-Instruct"
+        if "qwen" in str(model_name).lower():
+            target_model = "Qwen/Qwen2.5-Coder-32B-Instruct"
+        res = client.chat.completions.create(
+            model=target_model,
+            messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            "max_tokens": max_tokens,
-            "temperature": 0.3
-        }
-        req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST")
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            if "choices" in data and len(data["choices"]) > 0:
-                content = data["choices"][0]["message"]["content"].strip()
-                if content:
-                    return content
+            max_tokens=max_tokens,
+            temperature=0.3
+        )
+        if res.choices and len(res.choices) > 0:
+            content = res.choices[0].message.content.strip()
+            if content:
+                return content
     except Exception as e:
-        _log.warning("[hf_api] Hugging Face API call fallback: %s", e)
+        _log.warning("[hf_api] Hugging Face InferenceClient call fallback: %s", e)
     return None
 
 

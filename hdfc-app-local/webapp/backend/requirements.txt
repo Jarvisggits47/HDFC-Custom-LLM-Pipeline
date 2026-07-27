@@ -12,4 +12,6 @@ accelerate>=0.34
 sentence-transformers>=3.0
 python-docx>=1.1
 psycopg2-binary>=2.9
+huggingface_hub>=0.20
+
 
