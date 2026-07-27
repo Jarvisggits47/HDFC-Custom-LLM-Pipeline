@@ -74,7 +74,12 @@ def on_startup():
         db.commit()
 
         # Seed authorized HDFC employee directory if table is empty
-        if db.query(models.Employee).count() == 0:
+        try:
+            emp_count = db.execute(_sql("SELECT count(*) FROM employees")).scalar() or 0
+        except Exception:
+            emp_count = 0
+
+        if emp_count == 0:
             initial_emps = [
                 {"employee_id": "HDFC-AI-101", "full_name": "Abhi", "email": "jarvisanand85@gmail.com", "role": "Lead AI Engineer", "department": "AI & Machine Learning"},
                 {"employee_id": "HDFC-AI-102", "full_name": "Senior AI Architect", "email": "ai-arch@hdfcbank.com", "role": "Senior AI Systems Architect", "department": "AI & Machine Learning"},
