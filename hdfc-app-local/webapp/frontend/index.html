@@ -38,13 +38,13 @@
       </div>
 
       <div class="float-field" id="reg-emp-field">
-        <input id="login-empid" type="text" placeholder=" " autocomplete="off" value="HDFC-AI-101" required>
+        <input id="login-empid" type="text" placeholder=" " autocomplete="off" required>
         <label for="login-empid">HDFC Unique Employee ID (e.g. HDFC-AI-101 or DEV 3301)</label>
         <i data-lucide="shield-check"></i>
       </div>
 
       <div class="float-field">
-        <input id="login-username" type="text" placeholder=" " autocomplete="username" value="abhi@hdfcbank.com" required>
+        <input id="login-username" type="text" placeholder=" " autocomplete="username" required>
         <label for="login-username">Username or Corporate Email</label>
         <i data-lucide="mail"></i>
       </div>
@@ -72,7 +72,7 @@
           <input type="checkbox" id="remember-me" checked>
           <span>Remember me</span>
         </label>
-        <a href="#" class="forgot" onclick="showToast('Password reset link sent to admin.', 'info'); return false">Forgot password?</a>
+        <a href="#" class="forgot" onclick="openForgotPasswordModal(); return false">Forgot password?</a>
       </div>
 
       <button type="submit" class="btn-login" id="login-btn">
@@ -696,7 +696,7 @@
           </select>
         </div>
         <div style="margin-top:4px">
-          <button type="button" class="btn-secondary" style="width:100%;color:var(--warn)" onclick="openResetPasswordModal()"><i data-lucide="key"></i> Reset Password / Recover Credentials</button>
+          <button type="button" class="btn-secondary" style="width:100%;color:var(--warn)" onclick="openUpdatePasswordModal()"><i data-lucide="key"></i> Change / Update Account Password</button>
         </div>
       </div>
     </div>
@@ -707,35 +707,72 @@
   </div>
 </div>
 
-<!-- Reset Password Modal -->
-<div id="reset-password-modal" class="modal-overlay" style="display:none">
+<!-- Forgot Password / Account Recovery Modal (From Sign In Screen) -->
+<div id="forgot-password-modal" class="modal-overlay" style="display:none">
   <div class="modal-card" style="max-width:440px">
     <div class="modal-head">
-      <div class="modal-title"><i data-lucide="key"></i> HDFC Credentials &amp; Password Reset</div>
-      <button class="modal-close" onclick="closeResetPasswordModal()">&times;</button>
+      <div class="modal-title"><i data-lucide="key-round"></i> Forgot Password &amp; Account Recovery</div>
+      <button class="modal-close" onclick="closeForgotPasswordModal()">&times;</button>
     </div>
     <div class="modal-body" style="padding:16px">
       <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">
-        To reset your credentials, enter your <b>Division Code</b> (e.g. <code>DEV</code>, <code>AI</code>, <code>EMP</code>, <code>GOV</code>) and your <b>Numeric Code</b> (e.g. <code>3301</code>, <code>101</code>, <code>4829</code>):
+        To recover your credentials, enter your registered <b>Corporate Email</b> and <b>HDFC Unique Employee ID</b>:
       </p>
-      <div style="display:flex;gap:10px;margin-bottom:12px">
-        <div style="flex:1">
-          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">Division Code</label>
-          <input id="reset-div-code" class="input" style="width:100%;text-transform:uppercase" placeholder="e.g. DEV or AI" value="AI">
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div>
+          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">Registered Corporate Email</label>
+          <input id="forgot-email" type="email" class="input" style="width:100%" placeholder="e.g. abhi@hdfcbank.com">
         </div>
-        <div style="flex:1">
-          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">Numeric Code</label>
-          <input id="reset-num-code" class="input" style="width:100%" placeholder="e.g. 3301 or 101" value="101">
+        <div>
+          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">HDFC Unique Employee ID</label>
+          <input id="forgot-empid" type="text" class="input" style="width:100%" placeholder="e.g. HDFC-AI-101 or DEV 3301">
         </div>
-      </div>
-      <div>
-        <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">New Password</label>
-        <input id="reset-new-pass" type="password" class="input" style="width:100%" placeholder="Enter new secure password">
+        <div>
+          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">New Password</label>
+          <input id="forgot-new-pass" type="password" class="input" style="width:100%" placeholder="Enter new secure password">
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">Confirm New Password</label>
+          <input id="forgot-confirm-pass" type="password" class="input" style="width:100%" placeholder="Re-enter new secure password">
+        </div>
       </div>
     </div>
     <div class="modal-foot">
-      <button type="button" class="btn-secondary" onclick="closeResetPasswordModal()">Cancel</button>
-      <button type="button" class="btn-primary" onclick="submitResetPassword()"><i data-lucide="check-circle"></i> Verify &amp; Reset Password</button>
+      <button type="button" class="btn-secondary" onclick="closeForgotPasswordModal()">Cancel</button>
+      <button type="button" class="btn-primary" onclick="submitForgotPassword()"><i data-lucide="check-circle"></i> Verify &amp; Reset Password</button>
+    </div>
+  </div>
+</div>
+
+<!-- Update Password Modal (From Inside App / Profile Settings) -->
+<div id="update-password-modal" class="modal-overlay" style="display:none">
+  <div class="modal-card" style="max-width:440px">
+    <div class="modal-head">
+      <div class="modal-title"><i data-lucide="lock"></i> Update Account Password</div>
+      <button class="modal-close" onclick="closeUpdatePasswordModal()">&times;</button>
+    </div>
+    <div class="modal-body" style="padding:16px">
+      <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">
+        Update your account password below:
+      </p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div>
+          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">Current Password</label>
+          <input id="update-curr-pass" type="password" class="input" style="width:100%" placeholder="Enter current password">
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">New Password</label>
+          <input id="update-new-pass" type="password" class="input" style="width:100%" placeholder="Enter new password">
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">Confirm New Password</label>
+          <input id="update-confirm-pass" type="password" class="input" style="width:100%" placeholder="Re-enter new password">
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn-secondary" onclick="closeUpdatePasswordModal()">Cancel</button>
+      <button type="button" class="btn-primary" onclick="submitUpdatePassword()"><i data-lucide="check"></i> Update Password</button>
     </div>
   </div>
 </div>

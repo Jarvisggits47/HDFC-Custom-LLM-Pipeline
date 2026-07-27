@@ -349,39 +349,79 @@ async function saveUserProfile() {
   }
 }
 
-function openResetPasswordModal() {
-  const modal = document.getElementById("reset-password-modal");
+function openForgotPasswordModal() {
+  const modal = document.getElementById("forgot-password-modal");
   if (modal) modal.style.display = "flex";
 }
 
-function closeResetPasswordModal() {
-  const modal = document.getElementById("reset-password-modal");
+function closeForgotPasswordModal() {
+  const modal = document.getElementById("forgot-password-modal");
   if (modal) modal.style.display = "none";
 }
 
-async function submitResetPassword() {
-  const divCode = document.getElementById("reset-div-code")?.value.trim() || "";
-  const numCode = document.getElementById("reset-num-code")?.value.trim() || "";
-  const newPass = document.getElementById("reset-new-pass")?.value || "";
+async function submitForgotPassword() {
+  const email       = document.getElementById("forgot-email")?.value.trim() || "";
+  const empId       = document.getElementById("forgot-empid")?.value.trim() || "";
+  const newPass     = document.getElementById("forgot-new-pass")?.value || "";
+  const confirmPass = document.getElementById("forgot-confirm-pass")?.value || "";
 
-  if (!divCode || !numCode) {
-    showToast("Please enter both Division Code (e.g. DEV) and Numeric Code (e.g. 3301).", "warn");
+  if (!email || !empId || !newPass || !confirmPass) {
+    showToast("Please fill in all fields (Corporate Email, Employee ID, New Password, Confirm Password).", "warn");
     return;
   }
-  const queryId = `HDFC-${divCode.toUpperCase()}-${numCode}`;
+
+  if (newPass !== confirmPass) {
+    showToast("New Password and Confirm New Password do not match.", "bad");
+    return;
+  }
 
   try {
     const emp = await api("/auth/verify-employee", {
       method: "POST",
-      body: JSON.stringify({ employee_id: queryId })
+      body: JSON.stringify({ employee_id: empId })
     });
 
-    closeResetPasswordModal();
-    logUserAction("PASSWORD_RESET", `Password reset for HDFC Officer ${emp.employee_id} (${emp.full_name})`);
-    showToast(`✅ Credentials verified! Password reset successfully for ${emp.employee_id} (${emp.full_name}).`, "ok");
+    if (emp.email.toLowerCase() !== email.toLowerCase()) {
+      showToast(`Verification Failed: Corporate email '${email}' does not match registered email for ${emp.employee_id}.`, "bad");
+      return;
+    }
+
+    closeForgotPasswordModal();
+    logUserAction("PASSWORD_RESET", `Password reset for ${emp.employee_id} (${emp.email})`);
+    showToast(`✅ Verification successful! Password reset for ${emp.employee_id} (${emp.email}).`, "ok");
   } catch (err) {
-    showToast(`❌ Reset Failed: Invalid Division/Numeric Code for ${queryId}.`, "bad");
+    showToast(`❌ Verification Failed: Invalid HDFC Employee ID or Email.`, "bad");
   }
+}
+
+function openUpdatePasswordModal() {
+  const modal = document.getElementById("update-password-modal");
+  if (modal) modal.style.display = "flex";
+}
+
+function closeUpdatePasswordModal() {
+  const modal = document.getElementById("update-password-modal");
+  if (modal) modal.style.display = "none";
+}
+
+function submitUpdatePassword() {
+  const currPass    = document.getElementById("update-curr-pass")?.value || "";
+  const newPass     = document.getElementById("update-new-pass")?.value || "";
+  const confirmPass = document.getElementById("update-confirm-pass")?.value || "";
+
+  if (!currPass || !newPass || !confirmPass) {
+    showToast("Please fill in Current Password, New Password, and Confirm New Password.", "warn");
+    return;
+  }
+
+  if (newPass !== confirmPass) {
+    showToast("New Password and Confirm New Password do not match.", "bad");
+    return;
+  }
+
+  closeUpdatePasswordModal();
+  logUserAction("PASSWORD_UPDATE", "User updated account password");
+  showToast("✅ Password updated successfully.", "ok");
 }
 
 function updateSidebarUser() {
