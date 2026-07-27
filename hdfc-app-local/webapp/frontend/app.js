@@ -4,7 +4,7 @@
    =================================================== */
 
 const API = (typeof window !== "undefined" && window.location.hostname.includes("github.io"))
-  ? "https://hdfc-llm-backend.onrender.com/api"
+  ? "https://hdfc-custom-llm-backend.onrender.com/api"
   : "/api";
 let _health = null;
 
