@@ -64,7 +64,7 @@ def on_startup():
         # Seed authorized HDFC employee directory if table is empty
         if db.query(models.Employee).count() == 0:
             initial_emps = [
-                {"employee_id": "HDFC-AI-101", "full_name": "Abhi", "email": "abhi@hdfcbank.com", "role": "Lead AI Engineer", "department": "AI & Machine Learning"},
+                {"employee_id": "HDFC-AI-101", "full_name": "Abhi", "email": "jarvisanand85@gmail.com", "role": "Lead AI Engineer", "department": "AI & Machine Learning"},
                 {"employee_id": "HDFC-AI-102", "full_name": "Senior AI Architect", "email": "ai-arch@hdfcbank.com", "role": "Senior AI Systems Architect", "department": "AI & Machine Learning"},
                 {"employee_id": "HDFC-AI-103", "full_name": "RAG Alignment Specialist", "email": "rag-eval@hdfcbank.com", "role": "RAG & LLM Alignment Specialist", "department": "AI & Machine Learning"},
                 {"employee_id": "HDFC-AI-104", "full_name": "MLOps Infrastructure Lead", "email": "mlops@hdfcbank.com", "role": "MLOps Infrastructure Lead", "department": "AI & Machine Learning"},
@@ -91,6 +91,12 @@ def on_startup():
             ]
             for emp in initial_emps:
                 db.add(models.Employee(id=f"emp-{uuid.uuid4().hex[:8]}", **emp))
+            db.commit()
+
+        # Update existing lead record email to jarvisanand85@gmail.com
+        lead_emp = db.query(models.Employee).filter(models.Employee.employee_id == "HDFC-AI-101").first()
+        if lead_emp:
+            lead_emp.email = "jarvisanand85@gmail.com"
             db.commit()
     finally:
         db.close()
