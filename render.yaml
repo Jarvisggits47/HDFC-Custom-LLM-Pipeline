@@ -19,3 +19,5 @@ services:
         value: "true"
       - key: DATABASE_URL
         value: "postgresql://hdfc_db_user:63PLvuGcNlBfoHYK9lwQHkFxupEH1aY6@dpg-d9jf2sf41pts73cj1h4g-a/hdfc_db"
+      - key: HF_TOKEN
+        sync: false

@@ -317,17 +317,17 @@ def call_model(
             "A generation is already in progress. CPU inference is single-request only — please retry in a few seconds."
         )
 
-def _call_hf_api(model_name: str, system_prompt: str, user_prompt: str, max_tokens: int = 80) -> Optional[str]:
-    """Call Hugging Face Serverless API for real SmolLM2-360M model text generation."""
+def _call_hf_api(model_name: str, system_prompt: str, user_prompt: str, max_tokens: int = 200) -> Optional[str]:
+    """Call Hugging Face Serverless API for real model text generation."""
     try:
         url = "https://router.huggingface.co/hf-inference/v1/chat/completions"
-        headers = {"Content-Type": "application/json"}
         hf_token = os.environ.get("HF_TOKEN")
+        headers = {"Content-Type": "application/json"}
         if hf_token:
             headers["Authorization"] = f"Bearer {hf_token}"
             
         payload = {
-            "model": model_name or DEFAULT_MODEL,
+            "model": "Qwen/Qwen2.5-Coder-32B-Instruct",
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
@@ -336,7 +336,7 @@ def _call_hf_api(model_name: str, system_prompt: str, user_prompt: str, max_toke
             "temperature": 0.3
         }
         req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST")
-        with urllib.request.urlopen(req, timeout=12) as resp:
+        with urllib.request.urlopen(req, timeout=15) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             if "choices" in data and len(data["choices"]) > 0:
                 content = data["choices"][0]["message"]["content"].strip()
