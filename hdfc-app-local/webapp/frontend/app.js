@@ -390,8 +390,21 @@ async function saveUserProfile() {
 }
 
 function openPasswordModal(tab = 'update') {
-  const modal = document.getElementById("password-modal");
+  const modal     = document.getElementById("password-modal");
+  const updateBtn = document.getElementById("tab-pass-update-btn");
+  const tempBtn   = document.getElementById("tab-pass-temp-btn");
+
   if (!modal) return;
+
+  const isLoggedIn = !!sessionStorage.getItem(USER_KEY);
+  if (tab === 'forgot' && !isLoggedIn) {
+    if (updateBtn) updateBtn.style.display = "none";
+    if (tempBtn) tempBtn.style.display = "none";
+  } else {
+    if (updateBtn) updateBtn.style.display = "inline-block";
+    if (tempBtn) tempBtn.style.display = "inline-block";
+  }
+
   switchPasswordTab(tab);
   modal.style.display = "flex";
   lucide.createIcons({ nodes: [modal] });
@@ -457,7 +470,7 @@ async function generateTempPasscode() {
       }, 1000);
     }
 
-    showToast(`🔑 Temp Passcode generated: ${res.passcode} (Valid for 15 mins)`, "ok");
+    showToast(`🔑 Fresh Temp Passcode generated: ${res.passcode} (Valid for 15 mins)`, "ok");
     loadActiveSessions();
   } catch (err) {
     showToast(`❌ Passcode generation failed: ${err.message}`, "bad");
@@ -470,24 +483,31 @@ async function loadActiveSessions() {
   try {
     const sessions = await api("/auth/active-sessions");
     if (!sessions || !sessions.length) {
-      el.innerHTML = `<div style="font-size:11px;color:var(--text-muted);text-align:center;padding:12px">No active secondary device sessions found.</div>`;
+      el.innerHTML = `<div style="font-size:11px;color:var(--text-muted);text-align:center;padding:12px">No active device sessions found.</div>`;
       return;
     }
-    el.innerHTML = sessions.map(s => `
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-bottom:1px solid var(--border-light);background:var(--bg-main)">
-        <div>
-          <div style="font-size:11.5px;font-weight:600;color:var(--text-main)">
-            <i data-lucide="${s.login_type === 'temp_passcode' ? 'smartphone' : 'laptop'}" style="width:12px;height:12px;color:var(--blue);vertical-align:-1px"></i> ${esc(s.device_info)}
+    el.innerHTML = sessions.map(s => {
+      const isMaster = s.login_type === "master";
+      const actionBtn = isMaster
+        ? `<span style="font-size:10px;font-weight:600;color:var(--ok);padding:3px 8px;background:rgba(16,185,129,0.12);border-radius:4px;border:1px solid rgba(16,185,129,0.3)"><i data-lucide="shield-check" style="width:11px;height:11px;vertical-align:-1px;margin-right:2px"></i> Master Account</span>`
+        : `<button type="button" class="btn-secondary" style="font-size:10px;padding:3px 8px;color:var(--accent);border-color:rgba(239,68,68,0.3)" onclick="terminateSession('${s.id}')">
+             <i data-lucide="power" style="width:11px;height:11px"></i> Kill Session
+           </button>`;
+
+      return `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-bottom:1px solid var(--border-light);background:var(--bg-main)">
+          <div>
+            <div style="font-size:11.5px;font-weight:600;color:var(--text-main)">
+              <i data-lucide="${isMaster ? 'laptop' : 'smartphone'}" style="width:12px;height:12px;color:${isMaster ? 'var(--ok)' : 'var(--blue)'};vertical-align:-1px"></i> ${esc(s.device_info)}
+            </div>
+            <div style="font-size:10px;color:var(--text-muted);margin-top:2px">
+              Type: <span style="color:${isMaster ? 'var(--ok)' : 'var(--blue)'}">${esc(s.login_type)}</span> • IP: ${esc(s.ip_address)} • ${new Date(s.created_at).toLocaleTimeString()}
+            </div>
           </div>
-          <div style="font-size:10px;color:var(--text-muted);margin-top:2px">
-            Type: <span style="color:var(--ok)">${esc(s.login_type)}</span> • IP: ${esc(s.ip_address)} • ${new Date(s.created_at).toLocaleTimeString()}
-          </div>
+          ${actionBtn}
         </div>
-        <button type="button" class="btn-secondary" style="font-size:10px;padding:3px 8px;color:var(--accent);border-color:rgba(239,68,68,0.3)" onclick="terminateSession('${s.id}')">
-          <i data-lucide="power" style="width:11px;height:11px"></i> Kill Session
-        </button>
-      </div>
-    `).join("");
+      `;
+    }).join("");
     lucide.createIcons({ nodes: [el] });
   } catch (err) {
     el.innerHTML = `<div style="font-size:11px;color:var(--text-muted);text-align:center;padding:12px">Failed to load active sessions.</div>`;

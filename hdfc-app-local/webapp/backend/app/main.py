@@ -650,6 +650,14 @@ def monitoring(request: Request, db: Session = Depends(get_db)):
 @app.post("/api/auth/generate-temp-passcode", response_model=schemas.TempPasscodeOut)
 def generate_temp_passcode(request: Request, db: Session = Depends(get_db)):
     emp_id = get_emp_id_from_req(request, db)
+
+    # Invalidate any previously active passcodes for this employee
+    db.query(models.TempPasscode).filter(
+        models.TempPasscode.employee_id == emp_id,
+        models.TempPasscode.status == "active"
+    ).update({"status": "revoked", "is_used": True})
+    db.commit()
+
     passcode_str = f"TMP-{uuid.uuid4().hex[:6].upper()}"
     expires_at = datetime.utcnow() + timedelta(minutes=15)
 
@@ -759,14 +767,20 @@ def terminate_session(request: Request, session_id: str, db: Session = Depends(g
     if not sess:
         raise HTTPException(404, "Session not found or not owned by user.")
 
+    if sess.login_type == "master":
+        raise HTTPException(400, "Primary Master Account session cannot be terminated. Only secondary temp passcode sessions can be killed.")
+
     sess.status = "terminated"
+
+    emp = db.query(models.Employee).filter(models.Employee.employee_id == emp_id).first()
+    user_name = emp.full_name if emp else emp_id
 
     log = models.AuditLog(
         id=new_id("log"),
         employee_id=emp_id,
-        user_name="Master User",
+        user_name=user_name,
         action="SESSION_TERMINATED_REMOTELY",
-        details=f"Master account remotely killed session ({sess.device_info})",
+        details=f"Master account remotely killed secondary session ({sess.device_info})",
     )
     db.add(log)
     db.commit()
