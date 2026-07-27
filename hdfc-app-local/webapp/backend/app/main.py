@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text as _sql
 from sqlalchemy.orm import Session
 
+from typing import Optional
 from . import models, schemas, local_llm, document_prep
 from .database import Base, engine, SessionLocal, get_db
 
@@ -22,8 +23,20 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="HDFC custom LLM pipeline — control plane")
 
-def get_emp_id_from_req(request: Request) -> str:
+def get_emp_id_from_req(request: Request, db: Optional[Session] = None) -> str:
+    session_token = request.headers.get("X-Session-Token")
     emp_id = request.headers.get("X-Employee-ID") or request.query_params.get("employee_id")
+
+    if session_token and db:
+        try:
+            sess = db.query(models.UserSession).filter(models.UserSession.session_token == session_token).first()
+            if sess and sess.status == "terminated":
+                raise HTTPException(401, "Session has been terminated remotely by the account owner.")
+        except HTTPException:
+            raise
+        except Exception:
+            pass
+
     if not emp_id or emp_id in ("null", "undefined", ""):
         return "HDFC-AI-101"
     return emp_id.strip()
