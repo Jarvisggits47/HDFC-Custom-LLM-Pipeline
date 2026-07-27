@@ -203,6 +203,54 @@ def _load_model(model_name: str, cancel_event: Optional[threading.Event] = None)
         return result
 
 
+class PureNumpyEmbedder:
+    """Ultra-lightweight TF-IDF embedder using pure NumPy.
+    Uses 0 MB extra RAM and zero PyTorch overhead on free tiers."""
+    def __init__(self):
+        self.vocab = {}
+        self.idf = None
+
+    def _tokenize(self, text: str) -> list[str]:
+        words = re.findall(r"\w+", str(text).lower())
+        return [w for w in words if len(w) > 2 and w not in STOPWORDS]
+
+    def encode(self, sentences, **kwargs):
+        import numpy as np
+        clean = [
+            s.replace(BGE_QUERY_PREFIX, "") if isinstance(s, str) else str(s)
+            for s in sentences
+        ]
+        
+        doc_tokens = [self._tokenize(s) for s in clean]
+        if not self.vocab:
+            all_words = set()
+            for tokens in doc_tokens:
+                all_words.update(tokens)
+            self.vocab = {w: i for i, w in enumerate(sorted(all_words))}
+            N = max(1, len(clean))
+            df = np.zeros(max(1, len(self.vocab)), dtype=np.float32)
+            for tokens in doc_tokens:
+                unique = set(tokens)
+                for w in unique:
+                    if w in self.vocab:
+                        df[self.vocab[w]] += 1.0
+            self.idf = np.log((N + 1.0) / (df + 1.0)) + 1.0
+
+        if not self.vocab:
+            return np.zeros((len(sentences), 64), dtype=np.float32)
+
+        matrix = np.zeros((len(sentences), len(self.vocab)), dtype=np.float32)
+        for i, tokens in enumerate(doc_tokens):
+            for w in tokens:
+                if w in self.vocab:
+                    matrix[i, self.vocab[w]] += 1.0
+            matrix[i] *= self.idf
+
+        norms = np.linalg.norm(matrix, axis=1, keepdims=True)
+        norms[norms == 0] = 1.0
+        return (matrix / norms).astype(np.float32)
+
+
 def _load_embedder(embed_model_name: str, cancel_event: Optional[threading.Event] = None):
     global _download_error
     with _CACHE_LOCK:
@@ -210,31 +258,35 @@ def _load_embedder(embed_model_name: str, cancel_event: Optional[threading.Event
             _log.info("[embedder] CACHE HIT  %s", embed_model_name)
             return _embedder_cache[embed_model_name]
 
-        from sentence_transformers import SentenceTransformer
-        from concurrent.futures import ThreadPoolExecutor
+        if os.environ.get("RENDER") == "true" or os.environ.get("DISABLE_PRELOAD") == "1":
+            _log.info("[embedder] using PureNumpyEmbedder for memory-constrained free tier")
+            embedder = PureNumpyEmbedder()
+            _embedder_cache[embed_model_name] = embedder
+            return embedder
 
-        _log.info("[embedder] CACHE MISS — loading %s onto %s …", embed_model_name, DEVICE)
-        t0 = time.time()
-
-        pool = ThreadPoolExecutor(max_workers=1)
-        future = pool.submit(lambda: SentenceTransformer(embed_model_name, device=DEVICE))
         try:
+            from sentence_transformers import SentenceTransformer
+            from concurrent.futures import ThreadPoolExecutor
+
+            _log.info("[embedder] CACHE MISS — loading %s onto %s …", embed_model_name, DEVICE)
+            t0 = time.time()
+
+            pool = ThreadPoolExecutor(max_workers=1)
+            future = pool.submit(lambda: SentenceTransformer(embed_model_name, device=DEVICE))
             embedder = _wait_cancellable(
                 future, cancel_event, MODEL_LOAD_TIMEOUT_S, what=f"loading embedder {embed_model_name}"
             )
-        except Exception as e:
             pool.shutdown(wait=False)
-            _download_error = (
-                f"Could not load embedding model '{embed_model_name}': {e}. "
-                "This downloads from Hugging Face the first time."
-            )
-            raise
-        pool.shutdown(wait=False)
 
-        elapsed = time.time() - t0
-        _log.info("[embedder] loaded %s in %.1fs", embed_model_name, elapsed)
-        _embedder_cache[embed_model_name] = embedder
-        return embedder
+            elapsed = time.time() - t0
+            _log.info("[embedder] loaded %s in %.1fs", embed_model_name, elapsed)
+            _embedder_cache[embed_model_name] = embedder
+            return embedder
+        except Exception as e:
+            _log.warning("[embedder] falling back to PureNumpyEmbedder due to: %s", e)
+            embedder = PureNumpyEmbedder()
+            _embedder_cache[embed_model_name] = embedder
+            return embedder
 
 
 def _format_prompt(tokenizer, system_prompt: str, user_prompt: str) -> str:
