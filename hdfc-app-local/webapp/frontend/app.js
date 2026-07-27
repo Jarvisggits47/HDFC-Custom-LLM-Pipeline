@@ -755,11 +755,15 @@ function renderDatasetTable(datasets) {
     return;
   }
   tbody.innerHTML = datasets.map(ds => {
-    const canApprove = ds.status !== "approved" && ((ds.chunk_count || 0) > 0 || (ds.record_count || 0) > 0);
+    const isApproved = ds.status === "approved";
+    const canApprove = !isApproved && ((ds.chunk_count || 0) > 0 || (ds.record_count || 0) > 0);
     const hasChunks  = (ds.chunk_count || 0) > 0;
-    return `<tr>
+    return `<tr class="${!isApproved ? 'pending-dataset-row' : ''}">
       <td class="td-name">
-        <div style="font-weight:700;color:var(--text-primary)">${esc(ds.name)}</div>
+        <div style="font-weight:700;color:var(--text-primary);display:flex;align-items:center">
+          ${!isApproved ? '<span class="yellow-pulse-dot" title="Registered — Waiting for Approval"></span>' : ''}
+          ${esc(ds.name)}
+        </div>
         <div class="td-mono" style="font-size:11px;color:var(--text-secondary)">${esc(ds.source)}</div>
       </td>
       <td>
@@ -768,13 +772,40 @@ function renderDatasetTable(datasets) {
       </td>
       <td><span class="badge neutral">${ds.record_count ?? 0} Records</span></td>
       <td><span class="badge purple">${esc((ds.classification || 'internal').toUpperCase())}</span></td>
-      <td><span class="badge ${ds.status === 'approved' ? 'ok' : 'warn'}">${esc(ds.status === 'approved' ? 'Approved' : 'Pending Approval')}</span></td>
+      <td>
+        <span class="badge ${isApproved ? 'ok' : 'warn'}" style="font-weight:700">
+          ${!isApproved ? '<span class="yellow-pulse-dot"></span> Waiting for Approval' : '<i data-lucide="check-circle-2" style="width:12px;height:12px"></i> Approved'}
+        </span>
+      </td>
       <td><div class="td-actions">
-        ${canApprove ? `<button class="approve-btn" onclick="approveDataset('${ds.id}')"><i data-lucide="check"></i> Approve for AI</button>` : `<span style="font-size:11.5px;color:var(--ok);font-weight:600"><i data-lucide="check-circle-2"></i> Ready</span>`}
+        ${canApprove ? `<button class="approve-btn" onclick="approveDataset('${ds.id}')"><i data-lucide="shield-check"></i> APPROVE FOR AI MODEL</button>` : `<span style="font-size:12px;color:var(--ok);font-weight:700"><i data-lucide="check-circle-2"></i> Ready for AI</span>`}
       </div></td>
     </tr>`;
   }).join("");
   lucide.createIcons({ nodes: [tbody] });
+}
+
+function filterPendingDatasets() {
+  const subTabBtn = document.getElementById("subtab-doc-table-btn");
+  if (subTabBtn) {
+    document.querySelectorAll(".sub-tab").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".subtab-panel").forEach(t => t.classList.remove("active"));
+    subTabBtn.classList.add("active");
+    const docTable = document.getElementById("doc-table");
+    if (docTable) docTable.classList.add("active");
+  }
+
+  const filterSel = document.getElementById("dataset-status-filter");
+  if (filterSel) filterSel.value = "pending";
+
+  filterDatasets();
+
+  const card = document.querySelector("#doc-table .card");
+  if (card) {
+    card.scrollIntoView({ behavior: "smooth", block: "start" });
+    card.style.boxShadow = "0 0 24px rgba(245, 158, 11, 0.55)";
+    setTimeout(() => { card.style.boxShadow = ""; }, 2500);
+  }
 }
 
 async function renderDatasets() {
@@ -804,6 +835,19 @@ async function renderDatasets() {
   setBar("doc-bar-pending", (pending.length / maxDs) * 100);
   setBar("doc-bar-chunks", totalChunks ? 100 : 0);
   setBar("doc-bar-records", totalRecords ? 100 : 0);
+
+  // Sub-tab pending badge
+  const pendingBadge = document.getElementById("subtab-pending-badge");
+  if (pendingBadge) {
+    if (pending.length > 0) {
+      pendingBadge.style.display = "inline-flex";
+      pendingBadge.className = "badge warn";
+      pendingBadge.style.cssText = "font-size:10px;padding:2px 7px;margin-left:6px;font-weight:700";
+      pendingBadge.innerHTML = `<span class="yellow-pulse-dot"></span> ${pending.length} Pending`;
+    } else {
+      pendingBadge.style.display = "none";
+    }
+  }
 
   // Populate upload select (unapproved)
   const uploadSel = document.getElementById("upload-dataset-select");
@@ -1012,22 +1056,37 @@ async function renderRuns() {
     list.innerHTML = `<div class="item-card"><div class="empty-state"><i data-lucide="cpu"></i>No runs yet. Register and approve a dataset, then build an adapter.</div></div>`;
     lucide.createIcons({ nodes: [list] });
   } else {
+    const sortedRuns = runs.slice().sort((a, b) => {
+      const tA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const tB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      if (tA !== tB) return tB - tA;
+      return (b.id || 0) - (a.id || 0);
+    });
+
     const edgeMap = { queued:"edge-warn", building:"edge-warn", completed:"edge-ok", failed:"edge-bad" };
     const badgeMap = { queued:"neutral", building:"warn", completed:"ok", failed:"bad" };
-    list.innerHTML = runs.slice().reverse().map(run => `
-      <div class="item-card ${edgeMap[run.status] || ""}">
-        <div class="item-head">
-          <span class="item-title">${esc(run.name)}</span>
-          <span class="badge ${badgeMap[run.status] || "neutral"}">
-            ${run.status === "building" ? '<span class="spinner"></span>' : ""}${esc(run.status)}
-          </span>
-        </div>
-        <div class="item-meta">${esc(run.serving_model)}${run.adapter_hash ? " · adapter " + esc(run.adapter_hash) : ""}${run.chunk_count_used ? " · " + run.chunk_count_used + " chunks" : ""}</div>
-        <div class="progress-bar"><div class="progress-bar-fill" style="width:${run.progress ?? 0}%"></div></div>
-        ${(run.build_steps || []).length ? `<div class="build-steps">${(run.build_steps || []).map(s => `<div class="build-step"><b>${esc(s.label)}:</b> ${esc(s.detail)}</div>`).join("")}</div>` : ""}
-        ${run.error ? `<div style="color:var(--danger);font-size:12px;margin-top:8px">${esc(run.error)}</div>` : ""}
-      </div>
-    `).join("");
+
+    list.innerHTML = sortedRuns.map((run, idx) => {
+      const isLatest = idx === 0;
+      return `
+        <div class="item-card ${edgeMap[run.status] || ""} ${isLatest ? 'model-card-recent' : ''}" style="${isLatest ? 'border: 1px solid var(--blue); box-shadow: 0 0 18px rgba(26, 111, 212, 0.35);' : ''}">
+          ${isLatest ? `
+            <div class="recent-banner" style="background:linear-gradient(135deg, var(--blue), #0284c7);color:#ffffff;font-weight:800;padding:4px 12px;font-size:10.5px;border-radius:6px;display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;letter-spacing:0.04em">
+              <span style="display:flex;align-items:center;gap:6px"><i data-lucide="sparkles" style="width:14px;height:14px"></i> LATEST ADAPTER RUN (TOP)</span>
+              <span style="font-size:9.5px;opacity:0.9">Primary Model</span>
+            </div>` : ""}
+          <div class="item-head">
+            <span class="item-title" style="font-size:15px;font-weight:700">${esc(run.name)}</span>
+            <span class="badge ${badgeMap[run.status] || "neutral"}" style="${isLatest && run.status === 'completed' ? 'box-shadow:0 0 10px rgba(16,185,129,0.6);font-weight:700' : ''}">
+              ${run.status === "building" ? '<span class="spinner"></span>' : ""}${esc(run.status)}
+            </span>
+          </div>
+          <div class="item-meta">${esc(run.serving_model)}${run.adapter_hash ? " · adapter " + esc(run.adapter_hash) : ""}${run.chunk_count_used ? " · " + run.chunk_count_used + " chunks" : ""}</div>
+          <div class="progress-bar"><div class="progress-bar-fill" style="width:${run.progress ?? 0}%"></div></div>
+          ${(run.build_steps || []).length ? `<div class="build-steps">${(run.build_steps || []).map(s => `<div class="build-step"><b>${esc(s.label)}:</b> ${esc(s.detail)}</div>`).join("")}</div>` : ""}
+          ${run.error ? `<div style="color:var(--danger);font-size:12px;margin-top:8px">${esc(run.error)}</div>` : ""}
+        </div>`;
+    }).join("");
     lucide.createIcons({ nodes: [list] });
   }
 
@@ -1511,50 +1570,96 @@ function renderChatMessages(messages) {
 /* Strip incomplete trailing content from model responses before displaying */
 
 function trimIncomplete(text) {
-  console.log("My anant ", text);
+  console.log("=== [RAW MODEL RESPONSE BEFORE TRIMMING] ===");
+  console.log(text);
   if (!text) return text;
 
-  // Remove inline "Source:" lines appended by the model (grounding artifact)
-  text = text.replace(/\n+Source:[\s\S]*/i, "").trimEnd();
+  const originalText = text.replace(/\n+Source:[\s\S]*/i, "").trimEnd();
+  let textToProcess = originalText;
 
-  // If text already ends with valid punctuation or markdown quote/asterisk, return as is
-  if (/[.!?:\)"\*]$/.test(text)) {
-    return text;
-  }
+  const lines = textToProcess.split("\n");
+  let wasTrimmed = false;
 
-  // Step line-by-line from the end to remove only the incomplete trailing line
-  const lines = text.split("\n");
   while (lines.length > 0) {
-    const lastLine = lines[lines.length - 1].trimEnd();
-    
-    // Empty line -> pop and continue
+    const rawLine = lines[lines.length - 1];
+    const lastLine = rawLine.trimEnd();
+
+    // 1. Empty or whitespace line -> pop and continue
     if (!lastLine) {
       lines.pop();
+      wasTrimmed = true;
       continue;
     }
 
-    // Line ends with valid punctuation or closing markdown symbol -> complete!
-    if (/[.!?:\)"\*]$/.test(lastLine)) {
+    // 2. Trailing empty list stubs (e.g. "5.", "6. **", "6", "- **", "* **", "**") -> pop and continue
+    if (/^[\t ]*(?:[\*\-\•]|\d+[\.\)]?)[\s\*]*$/i.test(lastLine) || /^[\t ]*\*\*[\s\*]*$/i.test(lastLine)) {
+      lines.pop();
+      wasTrimmed = true;
+      continue;
+    }
+
+    // 3. Trailing list item headers ending with a colon without body text (e.g. "4. **Monitor your accounts**:", "- **Next steps**:") -> pop and continue
+    if (/^[\t ]*(?:[\*\-\•]|\d+[\.\)])\s*\*\*.*?\*\*\s*:\s*$/i.test(lastLine) || /^[\t ]*(?:[\*\-\•]|\d+[\.\)])\s*[^:\n]+:\s*$/i.test(lastLine)) {
+      lines.pop();
+      wasTrimmed = true;
+      continue;
+    }
+
+    // 4. Line ends with valid sentence-ending punctuation (. ! ? " )) -> complete!
+    if (/[.!?\)"`]$/.test(lastLine)) {
       break;
     }
 
-    // Complete bullet point or numbered list line -> complete!
-    if (/^[\t ]*[\*\-\•\d+\.]\s+.+/i.test(lastLine) && !/\b(that|to|the|with|for|in|of|and|or|must|be)\s*$/i.test(lastLine)) {
-      break;
-    }
-
-    // Try trimming to the last complete sentence within the line
-    const match = lastLine.match(/^.*[.!?:\)"\*]/);
+    // 5. Try trimming to the last complete sentence after any list item prefix (e.g. "5. **")
+    const contentPart = lastLine.replace(/^[\t ]*(?:[\*\-\•]|\d+[\.\)])\s*(?:\*\*.*?\*\*\s*:?\s*)?/, "");
+    const match = contentPart.match(/^.*[.!?\)"`]/);
     if (match && match[0].trim().length > 0) {
-      lines[lines.length - 1] = match[0].trimEnd();
+      const prefix = lastLine.slice(0, lastLine.length - contentPart.length);
+      lines[lines.length - 1] = (prefix + match[0]).trimEnd();
+      wasTrimmed = true;
       break;
     }
 
-    // Otherwise, pop the incomplete line
+    // 6. Otherwise, the line ends with an incomplete fragment (e.g. "5. **Proof of") -> pop line!
     lines.pop();
+    wasTrimmed = true;
   }
 
-  return lines.join("\n").trimEnd();
+  let result = lines.join("\n").trimEnd();
+
+  // If text was cut off by model token limit and trimmed, mark for amber note box
+  if (wasTrimmed && result.length < originalText.length) {
+    result += "\n__AMBER_NOTE_BOX__";
+  }
+
+  console.log("=== [FINAL RESPONSE AFTER TRIMMING] ===");
+  console.log(result);
+  return result;
+}
+
+function formatCompactCitations(citations) {
+  if (!citations || !citations.length) return "";
+  const docPagesMap = {};
+  citations.forEach(cStr => {
+    const raw = String(cStr || "");
+    const fileMatch = raw.match(/([a-zA-Z0-9_\-]+\.(?:pdf|docx|txt))/i);
+    let fileName = fileMatch ? fileMatch[1] : raw.split(" — ")[0]?.split("#")[0] || "Document";
+    fileName = fileName.replace(/\\/g, "/").split("/").pop();
+    const pageMatch = raw.match(/Page\s+(\d+)/i) || raw.match(/#p(\d+)/i);
+    const pageNum = pageMatch ? pageMatch[1] : null;
+
+    if (!docPagesMap[fileName]) docPagesMap[fileName] = new Set();
+    if (pageNum) docPagesMap[fileName].add(pageNum);
+  });
+
+  const parts = Object.keys(docPagesMap).map(file => {
+    const pages = Array.from(docPagesMap[file]).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
+    const pageStr = pages.length ? ` (p. ${pages.join(", ")})` : "";
+    return `${file}${pageStr}`;
+  });
+
+  const displayStr = parts.slice(0, 2).join(" · ") + (parts.length > 2 ? ` (+${parts.length - 2} more)` : "");
+  return displayStr;
 }
 
 function renderMessageHTML(m) {
@@ -1563,20 +1668,27 @@ function renderMessageHTML(m) {
     return `<div class="msg user"><div class="msg-avatar">${esc(initial)}</div><div class="msg-bubble">${esc(m.content)}</div></div>`;
   }
   const meta    = m.meta || {};
-  const content = trimIncomplete(m.content || "");
+  let content   = trimIncomplete(m.content || "");
+  let noteHTML  = "";
+  if (content.includes("__AMBER_NOTE_BOX__")) {
+    content  = content.replace("__AMBER_NOTE_BOX__", "").trimEnd();
+    noteHTML = `<div class="msg-note-box amber"><i data-lucide="shield-check"></i> <span><b>Bank Policy Note:</b> Key guidelines rendered above. For full documentation, refer to HDFC Policy Portal.</span></div>`;
+  }
+
   const badges  = [];
   if (meta.escalation_required)  badges.push(`<span class="badge warn">Escalation required</span>`);
   if (meta.guardrail_blocked)     badges.push(`<span class="badge bad">Blocked: ${esc(meta.guardrail_category || "unknown")}</span>`);
   else if (meta.guardrail_category && meta.guardrail_category !== "general")
     badges.push(`<span class="badge neutral">${esc(meta.guardrail_category)}</span>`);
+
   let cite = "";
   if (meta.citations?.length) {
-    const names = meta.citations.map(c => {
-      const parts = String(c || "").replace(/\\/g, "/").split("/");
-      return parts[parts.length - 1] || c;
-    });
-    cite = `<div class="msg-cite">Sources: ${esc(names.join(" · "))}</div>`;
+    const cleanCiteStr = formatCompactCitations(meta.citations);
+    if (cleanCiteStr) {
+      cite = `<div class="msg-cite"><i data-lucide="file-text" style="width:12px;height:12px;display:inline-block;vertical-align:middle;margin-right:4px"></i> Sources: ${esc(cleanCiteStr)}</div>`;
+    }
   }
+
   let info = "";
   if (meta.served_by) {
     const name = String(meta.served_by).split(" (")[0].split(" via ")[0];
@@ -1584,7 +1696,7 @@ function renderMessageHTML(m) {
     const lat = ms >= 1000 ? (ms / 1000).toFixed(1) + "s" : ms + "ms";
     info = `<div class="msg-footer">${esc(name)} · ${lat}</div>`;
   }
-  return `<div class="msg bot"><div class="msg-avatar"><img src="hdfc-mark.svg" alt="HDFC"></div><div class="msg-bubble">${esc(content)}${badges.length ? `<div class="msg-badges">${badges.join("")}</div>` : ""}${cite}${info}</div></div>`;
+  return `<div class="msg bot"><div class="msg-avatar"><img src="hdfc-mark.svg" alt="HDFC"></div><div class="msg-bubble">${esc(content)}${noteHTML}${badges.length ? `<div class="msg-badges">${badges.join("")}</div>` : ""}${cite}${info}</div></div>`;
 }
 
 const BANKING_AI_FACTS = [
@@ -1708,6 +1820,8 @@ function renderRetrieval(meta) {
     const conf   = Math.min(100, meta.confidence ?? 0);
     const color  = conf >= 70 ? "#10b981" : conf >= 40 ? "#f59e0b" : "#ef4444";
     const r = 52, circ = 2 * Math.PI * r, offset = circ * (1 - conf / 100);
+    const ms = meta.latency_ms ?? 0;
+    const latTxt = ms >= 1000 ? (ms / 1000).toFixed(1) + "s" : ms + "ms";
     gaugeEl.style.display = "flex";
     gaugeEl.innerHTML = `
       <div class="gauge-ring">
@@ -1717,7 +1831,7 @@ function renderRetrieval(meta) {
         </svg>
         <div class="gauge-label"><div class="gauge-val">${conf.toFixed(0)}%</div><div class="gauge-cap">Confidence</div></div>
       </div>
-      <span class="latency-pill">${meta.latency_ms ?? 0} ms · ${chunks.length} chunk${chunks.length === 1 ? "" : "s"}</span>`;
+      <span class="latency-pill">${latTxt} · ${chunks.length} chunk${chunks.length === 1 ? "" : "s"}</span>`;
     requestAnimationFrame(() => {
       const fill = gaugeEl.querySelector(".gauge-fill");
       if (fill) fill.style.strokeDashoffset = offset;

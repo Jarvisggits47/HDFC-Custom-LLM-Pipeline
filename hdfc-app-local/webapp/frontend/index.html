@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HDFC Bank — Enterprise AI Factory</title>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
-<link rel="stylesheet" href="styles.css?v=36">
+<link rel="stylesheet" href="styles.css?v=49">
 </head>
 <body>
 
@@ -222,42 +222,45 @@
         </div>
       </div>
 
-      <div class="split-layout">
-        <!-- LEFT: stat column -->
-        <aside class="split-side">
-          <div class="stat-tile" style="--c:var(--blue)">
-            <div class="stat-tile-top"><span class="stat-tile-label">Total Datasets</span><i data-lucide="database"></i></div>
-            <div class="stat-tile-value" id="doc-stat-total">0</div>
-            <div class="stat-bar"><span id="doc-bar-total" style="width:0%"></span></div>
+      <div class="doc-summary-strip">
+        <div class="stat-tile" style="--c:var(--blue)">
+          <div class="stat-tile-top"><span class="stat-tile-label">Total Datasets</span><i data-lucide="database"></i></div>
+          <div class="stat-tile-value" id="doc-stat-total">0</div>
+          <div class="stat-bar"><span id="doc-bar-total" style="width:0%"></span></div>
+        </div>
+        <div class="stat-tile" style="--c:var(--ok)">
+          <div class="stat-tile-top"><span class="stat-tile-label">Approved</span><i data-lucide="check-circle"></i></div>
+          <div class="stat-tile-value" id="doc-stat-approved">0</div>
+          <div class="stat-bar"><span id="doc-bar-approved" style="width:0%"></span></div>
+        </div>
+        <div class="stat-tile clickable-stat-tile" style="--c:var(--warn);cursor:pointer" onclick="filterPendingDatasets()" title="Click to view datasets waiting for approval">
+          <div class="stat-tile-top">
+            <span class="stat-tile-label" style="display:flex;align-items:center"><span class="yellow-pulse-dot"></span> Pending Review</span>
+            <i data-lucide="clock" style="color:var(--warn)"></i>
           </div>
-          <div class="stat-tile" style="--c:var(--ok)">
-            <div class="stat-tile-top"><span class="stat-tile-label">Approved</span><i data-lucide="check-circle"></i></div>
-            <div class="stat-tile-value" id="doc-stat-approved">0</div>
-            <div class="stat-bar"><span id="doc-bar-approved" style="width:0%"></span></div>
-          </div>
-          <div class="stat-tile" style="--c:var(--warn)">
-            <div class="stat-tile-top"><span class="stat-tile-label">Pending Review</span><i data-lucide="clock"></i></div>
-            <div class="stat-tile-value" id="doc-stat-pending">0</div>
-            <div class="stat-bar"><span id="doc-bar-pending" style="width:0%"></span></div>
-          </div>
-          <div class="stat-tile" style="--c:var(--teal)">
-            <div class="stat-tile-top"><span class="stat-tile-label">Total Chunks</span><i data-lucide="layers"></i></div>
-            <div class="stat-tile-value" id="doc-stat-chunks">0</div>
-            <div class="stat-bar"><span id="doc-bar-chunks" style="width:0%"></span></div>
-          </div>
-          <div class="stat-tile" style="--c:var(--purple)">
-            <div class="stat-tile-top"><span class="stat-tile-label">Total Records</span><i data-lucide="list"></i></div>
-            <div class="stat-tile-value" id="doc-stat-records">0</div>
-            <div class="stat-bar"><span id="doc-bar-records" style="width:0%"></span></div>
-          </div>
-        </aside>
+          <div class="stat-tile-value" id="doc-stat-pending" style="color:var(--warn)">0</div>
+          <div class="stat-bar"><span id="doc-bar-pending" style="width:0%;background:var(--grad-amber)"></span></div>
+        </div>
+        <div class="stat-tile" style="--c:var(--teal)">
+          <div class="stat-tile-top"><span class="stat-tile-label">Total Chunks</span><i data-lucide="layers"></i></div>
+          <div class="stat-tile-value" id="doc-stat-chunks">0</div>
+          <div class="stat-bar"><span id="doc-bar-chunks" style="width:0%"></span></div>
+        </div>
+        <div class="stat-tile" style="--c:var(--purple)">
+          <div class="stat-tile-top"><span class="stat-tile-label">Total Records</span><i data-lucide="list"></i></div>
+          <div class="stat-tile-value" id="doc-stat-records">0</div>
+          <div class="stat-bar"><span id="doc-bar-records" style="width:0%"></span></div>
+        </div>
+      </div>
 
-        <!-- RIGHT: main content -->
-        <div class="split-main">
-          <div class="sub-tabs">
-            <button class="sub-tab active" data-subtab="doc-register">Register &amp; Upload</button>
-            <button class="sub-tab" data-subtab="doc-table">Dataset Table</button>
-          </div>
+      <div class="split-main" style="margin-top:14px">
+        <div class="sub-tabs">
+          <button class="sub-tab active" data-subtab="doc-register">Register &amp; Upload</button>
+          <button class="sub-tab" id="subtab-doc-table-btn" data-subtab="doc-table">
+            <span>Dataset Table</span>
+            <span id="subtab-pending-badge" style="display:none"></span>
+          </button>
+        </div>
 
           <!-- Register & Upload -->
           <div class="subtab-panel active" id="doc-register">
@@ -380,7 +383,6 @@
             </div>
           </div>
         </div>
-      </div>
     </section>
 
     <!-- ========== AI FACTORY (RUNS) ========== -->
@@ -708,6 +710,6 @@
 <!-- Toast container -->
 <div id="toast-container" class="toast-container"></div>
 
-<script src="app.js?v=36"></script>
+<script src="app.js?v=49"></script>
 </body>
 </html>
