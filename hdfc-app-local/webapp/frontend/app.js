@@ -1815,8 +1815,7 @@ function renderRetrieval(meta) {
   const gaugeEl = document.getElementById("confidence-gauge");
   const emptyEl = document.getElementById("retrieval-empty");
   const srcList = document.getElementById("sources-list");
-  const chunks  = meta.retrieved_chunks || [];
-  if (!chunks.length && meta.confidence == null) { resetRetrieval(); return; }
+  if (!chunks || !chunks.length) { resetRetrieval(); return; }
   if (emptyEl) emptyEl.style.display = "none";
   if (gaugeEl) {
     const conf   = Math.min(100, meta.confidence ?? 0);
