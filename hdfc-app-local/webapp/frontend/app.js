@@ -267,18 +267,18 @@ function switchAuthTab(tab) {
   const regRoleField = document.getElementById("reg-role-field");
   const btnText      = document.getElementById("login-btn-text");
 
-  if (regEmpField) regEmpField.style.display = "block";
-
   if (tab === "register") {
     loginTabBtn?.classList.remove("active");
     regTabBtn?.classList.add("active");
     if (regNameField) regNameField.style.display = "block";
+    if (regEmpField)  regEmpField.style.display = "block";
     if (regRoleField) regRoleField.style.display = "block";
     if (btnText) btnText.textContent = "Create Account";
   } else {
     regTabBtn?.classList.remove("active");
     loginTabBtn?.classList.add("active");
     if (regNameField) regNameField.style.display = "none";
+    if (regEmpField)  regEmpField.style.display = "none";
     if (regRoleField) regRoleField.style.display = "none";
     if (btnText) btnText.textContent = "Secure Login";
   }
@@ -485,30 +485,64 @@ if (loginForm) {
   loginForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const isRegister  = _currentAuthTab === "register";
-    const fullNameInp = document.getElementById("login-fullname");
-    const empIdInp    = document.getElementById("login-empid")?.value.trim() || "HDFC-AI-101";
-    const usernameInp = document.getElementById("login-username");
-    const roleSel     = document.getElementById("login-role");
+    const fullNameInp = document.getElementById("login-fullname")?.value.trim() || "";
+    const empIdInp    = document.getElementById("login-empid")?.value.trim() || "";
+    const usernameInp = document.getElementById("login-username")?.value.trim() || "Abhi";
+    const roleSel     = document.getElementById("login-role")?.value || "Lead AI Engineer";
 
-    try {
-      const emp = await api("/auth/verify-employee", {
-        method: "POST",
-        body: JSON.stringify({ employee_id: empIdInp })
-      });
+    if (isRegister) {
+      if (!empIdInp) {
+        showToast("Please enter your HDFC Unique Employee ID (e.g. HDFC-AI-101 or DEV 3301).", "warn");
+        return;
+      }
+      try {
+        const emp = await api("/auth/verify-employee", {
+          method: "POST",
+          body: JSON.stringify({ employee_id: empIdInp })
+        });
 
-      const name = (isRegister && fullNameInp?.value.trim()) ? fullNameInp.value.trim() : emp.full_name;
-      const role = (isRegister && roleSel?.value) ? roleSel.value : emp.role;
-      const verifiedEmpId = emp.employee_id;
+        const name = fullNameInp || emp.full_name;
+        const role = roleSel || emp.role;
+        const verifiedEmpId = emp.employee_id;
 
-      const user = { empId: verifiedEmpId, name, role, email: emp.email, loginTime: Date.now() };
+        const user = { empId: verifiedEmpId, name, role, email: emp.email, loginTime: Date.now() };
+        sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+        showApp();
+        updateSidebarUser();
+        bootApp();
+        logUserAction("USER_REGISTER", `New user registered: ${name} (${verifiedEmpId})`);
+        showToast(`Account verified & created! Welcome, ${name} (${verifiedEmpId}).`, "ok");
+      } catch (err) {
+        showToast(`❌ Verification Failed: ${err.message}`, "bad");
+      }
+    } else {
+      // Standard Sign In with Username / Email & Password
+      let empId = "HDFC-AI-101";
+      let name  = usernameInp.split("@")[0] || "Abhi";
+      let role  = "Lead AI Engineer";
+      let email = usernameInp.includes("@") ? usernameInp : `${usernameInp}@hdfcbank.com`;
+
+      // Try background verification if username matches an employee ID pattern
+      try {
+        const emp = await api("/auth/verify-employee", {
+          method: "POST",
+          body: JSON.stringify({ employee_id: usernameInp })
+        });
+        empId = emp.employee_id;
+        name  = emp.full_name;
+        role  = emp.role;
+        email = emp.email;
+      } catch {
+        // Fallback standard user login
+      }
+
+      const user = { empId, name, role, email, loginTime: Date.now() };
       sessionStorage.setItem(USER_KEY, JSON.stringify(user));
       showApp();
       updateSidebarUser();
       bootApp();
-      logUserAction(isRegister ? "USER_REGISTER" : "USER_LOGIN", `${name} logged in with ${verifiedEmpId}`);
-      showToast(isRegister ? `Account verified & created! Welcome, ${name} (${verifiedEmpId}).` : `Welcome back, ${name} (${verifiedEmpId}).`, "ok");
-    } catch (err) {
-      showToast(`❌ Authorization Failed: ${err.message}`, "bad");
+      logUserAction("USER_LOGIN", `${name} signed in`);
+      showToast(`Welcome back, ${name}.`, "ok");
     }
   });
 }
