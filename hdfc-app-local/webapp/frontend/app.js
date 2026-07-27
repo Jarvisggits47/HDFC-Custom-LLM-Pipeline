@@ -263,8 +263,11 @@ function switchAuthTab(tab) {
   const loginTabBtn  = document.getElementById("tab-login-btn");
   const regTabBtn    = document.getElementById("tab-register-btn");
   const regNameField = document.getElementById("reg-name-field");
+  const regEmpField  = document.getElementById("reg-emp-field");
   const regRoleField = document.getElementById("reg-role-field");
   const btnText      = document.getElementById("login-btn-text");
+
+  if (regEmpField) regEmpField.style.display = "block";
 
   if (tab === "register") {
     loginTabBtn?.classList.remove("active");
@@ -443,20 +446,30 @@ if (loginForm) {
     e.preventDefault();
     const isRegister  = _currentAuthTab === "register";
     const fullNameInp = document.getElementById("login-fullname");
+    const empIdInp    = document.getElementById("login-empid")?.value.trim() || "HDFC-AI-101";
     const usernameInp = document.getElementById("login-username");
     const roleSel     = document.getElementById("login-role");
 
-    const name = (isRegister && fullNameInp?.value.trim()) ? fullNameInp.value.trim() : (usernameInp?.value.trim() || "Abhi");
-    const role = (isRegister && roleSel?.value) ? roleSel.value : "Lead AI Engineer";
-    const defaultEmpId = isRegister ? "HDFC-DEV-3301" : "HDFC-AI-101";
+    try {
+      const emp = await api("/auth/verify-employee", {
+        method: "POST",
+        body: JSON.stringify({ employee_id: empIdInp })
+      });
 
-    const user = { empId: defaultEmpId, name, role, email: `${name.toLowerCase().replace(/\s+/g, ".")}@hdfcbank.com`, loginTime: Date.now() };
-    sessionStorage.setItem(USER_KEY, JSON.stringify(user));
-    showApp();
-    updateSidebarUser();
-    bootApp();
-    logUserAction("USER_LOGIN", `${name} logged in with ${defaultEmpId}`);
-    showToast(isRegister ? `Account created! Welcome, ${name} (${defaultEmpId}).` : `Welcome back, ${name} (${defaultEmpId}).`, "ok");
+      const name = (isRegister && fullNameInp?.value.trim()) ? fullNameInp.value.trim() : emp.full_name;
+      const role = (isRegister && roleSel?.value) ? roleSel.value : emp.role;
+      const verifiedEmpId = emp.employee_id;
+
+      const user = { empId: verifiedEmpId, name, role, email: emp.email, loginTime: Date.now() };
+      sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+      showApp();
+      updateSidebarUser();
+      bootApp();
+      logUserAction(isRegister ? "USER_REGISTER" : "USER_LOGIN", `${name} logged in with ${verifiedEmpId}`);
+      showToast(isRegister ? `Account verified & created! Welcome, ${name} (${verifiedEmpId}).` : `Welcome back, ${name} (${verifiedEmpId}).`, "ok");
+    } catch (err) {
+      showToast(`❌ Authorization Failed: ${err.message}`, "bad");
+    }
   });
 }
 

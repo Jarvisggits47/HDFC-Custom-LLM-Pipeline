@@ -20,22 +20,11 @@ An enterprise-grade, memory-protected Artificial Intelligence platform built for
 
 ---
 
-## 📋 Authorized HDFC Employee ID Directory
+## 🔒 Enterprise Authentication & Security
 
-| Division Code | Unique Employee ID | Assigned Name & Role | Department |
-| :--- | :--- | :--- | :--- |
-| `AI` | **`HDFC-AI-101`** | Abhi (Lead AI Engineer & Admin) | AI & Machine Learning |
-| `AI` | **`HDFC-AI-102`** | Senior AI Systems Architect | AI & Machine Learning |
-| `AI` | **`HDFC-AI-103`** | RAG & LLM Alignment Specialist | AI & Machine Learning |
-| `EMP` | **`HDFC-EMP-4829`** | Senior Banking Operations Manager | Banking Operations |
-| `EMP` | **`HDFC-EMP-4830`** | Branch Operations Executive | Banking Operations |
-| `EMP` | **`HDFC-EMP-5102`** | Fixed Deposit & Savings Specialist | Banking Operations |
-| `GOV` | **`HDFC-GOV-9901`** | Chief Risk & Compliance Officer | Governance & Compliance |
-| `GOV` | **`HDFC-GOV-9902`** | Nodal Grievance Redressal Officer | Governance & Compliance |
-| `SEC` | **`HDFC-SEC-7701`** | Senior Fraud Investigation Lead | Cybersecurity & Fraud |
-| `SEC` | **`HDFC-SEC-7702`** | Information Security Lead | Cybersecurity & Fraud |
-| `DEV` | **`HDFC-DEV-3301`** | Core Pipeline Integration Developer | Enterprise IT |
-| `DEV` | **`HDFC-DEV-3302`** | Cloud Platform Operations Engineer | Enterprise IT |
+- **Database-Backed Verification**: Access requires entering authorized bank employee credentials (`HDFC-{DIV}-{NUM}`).
+- **Division + Numeric Code Password Recovery**: Supports self-service password reset using authorized division and numeric codes.
+- **Persistent Audit Logging**: Real-time logging of user activity and system telemetry in PostgreSQL database.
 
 ---
 
