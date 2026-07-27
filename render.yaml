@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: hdfc-custom-llm-backend
+    runtime: python
+    region: oregon
+    plan: free
+    buildCommand: "pip install --no-cache-dir -r hdfc-app-local/webapp/backend/requirements.txt"
+    startCommand: "cd hdfc-app-local/webapp/backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: FRONTEND_ORIGIN
+        value: "https://jarvisggits47.github.io"
+      - key: PIPELINE_DB_PATH
+        value: "./pipeline.db"
