@@ -129,3 +129,39 @@ class InferenceResponse(BaseModel):
     confidence: float = 0.0
     guardrail_category: str = "general"
     guardrail_blocked: bool = False
+
+
+class EmployeeVerifyRequest(BaseModel):
+    employee_id: str
+
+
+class EmployeeOut(BaseModel):
+    id: str
+    employee_id: str
+    full_name: str
+    email: str
+    role: str
+    department: str
+
+    class Config:
+        from_attributes = True
+
+
+class AuditLogCreate(BaseModel):
+    employee_id: str
+    user_name: str
+    action: str
+    details: str
+
+
+class AuditLogOut(BaseModel):
+    id: str
+    employee_id: str
+    user_name: str
+    action: str
+    details: str
+    created_at: Any
+
+    class Config:
+        from_attributes = True
+

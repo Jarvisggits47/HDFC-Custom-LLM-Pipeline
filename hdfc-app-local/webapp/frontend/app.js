@@ -285,19 +285,25 @@ function openUserProfileModal() {
   const modal = document.getElementById("profile-modal");
   if (!modal) return;
   const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
-  const name = u.name || "AI Engineer";
-  const role = u.role || "AI Engineer";
-  const email = u.email || `${name.toLowerCase().replace(/\s+/g, ".")}@hdfcbank.com`;
+  const empId = u.empId || "HDFC-AI-101";
+  const name = u.name || "Abhi";
+  const role = u.role || "Lead AI Engineer";
+  const email = u.email || "abhi@hdfcbank.com";
   const initial = (name || "A")[0].toUpperCase();
 
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
   set("modal-user-avatar", initial);
   set("modal-user-name", name);
   set("modal-user-email", email);
-  set("modal-user-role-badge", role);
+  set("modal-emp-id-val", `${empId} (Verified HDFC Personnel)`);
 
+  const empBadge = document.getElementById("modal-user-emp-badge");
+  if (empBadge) empBadge.innerHTML = `<i data-lucide="shield-check" style="width:11px;height:11px;margin-right:3px"></i> Verified: ${empId}`;
+
+  const empInp = document.getElementById("edit-profile-emp-id");
   const nameInp = document.getElementById("edit-profile-name");
   const roleSel = document.getElementById("edit-profile-role");
+  if (empInp) empInp.value = empId;
   if (nameInp) nameInp.value = name;
   if (roleSel) roleSel.value = role;
 
@@ -310,54 +316,147 @@ function closeUserProfileModal() {
   if (modal) modal.style.display = "none";
 }
 
-function saveUserProfile() {
+async function saveUserProfile() {
+  const empInp  = document.getElementById("edit-profile-emp-id");
   const nameInp = document.getElementById("edit-profile-name");
   const roleSel = document.getElementById("edit-profile-role");
-  const name = nameInp?.value.trim() || "AI Engineer";
-  const role = roleSel?.value || "AI Engineer";
+  const rawEmpId = empInp?.value.trim() || "HDFC-AI-101";
+  const name     = nameInp?.value.trim() || "Abhi";
+  const role     = roleSel?.value || "Lead AI Engineer";
 
-  const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
-  u.name = name;
-  u.role = role;
-  sessionStorage.setItem(USER_KEY, JSON.stringify(u));
+  try {
+    const emp = await api("/auth/verify-employee", {
+      method: "POST",
+      body: JSON.stringify({ employee_id: rawEmpId })
+    });
 
-  updateSidebarUser();
-  closeUserProfileModal();
-  showToast(`Profile updated: ${name} (${role})`, "ok");
+    const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
+    u.empId = emp.employee_id;
+    u.name  = name || emp.full_name;
+    u.role  = role || emp.role;
+    u.email = emp.email;
+    sessionStorage.setItem(USER_KEY, JSON.stringify(u));
+
+    updateSidebarUser();
+    closeUserProfileModal();
+    logUserAction("PROFILE_UPDATE", `Updated profile for ${u.empId} (${u.name})`);
+    showToast(`Profile updated: ${u.name} (${u.empId})`, "ok");
+  } catch (err) {
+    showToast(`Verification Failed: ${err.message}`, "bad");
+  }
+}
+
+function openResetPasswordModal() {
+  const modal = document.getElementById("reset-password-modal");
+  if (modal) modal.style.display = "flex";
+}
+
+function closeResetPasswordModal() {
+  const modal = document.getElementById("reset-password-modal");
+  if (modal) modal.style.display = "none";
+}
+
+async function submitResetPassword() {
+  const divCode = document.getElementById("reset-div-code")?.value.trim() || "";
+  const numCode = document.getElementById("reset-num-code")?.value.trim() || "";
+  const newPass = document.getElementById("reset-new-pass")?.value || "";
+
+  if (!divCode || !numCode) {
+    showToast("Please enter both Division Code (e.g. DEV) and Numeric Code (e.g. 3301).", "warn");
+    return;
+  }
+  const queryId = `HDFC-${divCode.toUpperCase()}-${numCode}`;
+
+  try {
+    const emp = await api("/auth/verify-employee", {
+      method: "POST",
+      body: JSON.stringify({ employee_id: queryId })
+    });
+
+    closeResetPasswordModal();
+    logUserAction("PASSWORD_RESET", `Password reset for HDFC Officer ${emp.employee_id} (${emp.full_name})`);
+    showToast(`✅ Credentials verified! Password reset successfully for ${emp.employee_id} (${emp.full_name}).`, "ok");
+  } catch (err) {
+    showToast(`❌ Reset Failed: Invalid Division/Numeric Code for ${queryId}.`, "bad");
+  }
 }
 
 function updateSidebarUser() {
   const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
-  const name = u.name || "AI Engineer";
-  const role = u.role || "AI Engineer";
+  const empId   = u.empId || "HDFC-AI-101";
+  const name    = u.name || "Abhi";
+  const role    = u.role || "Lead AI Engineer";
   const initial = (name || "A")[0].toUpperCase();
   const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-  set("user-name", name);
+  set("user-name", `${name} (${empId})`);
   set("user-role", role);
   set("user-avatar", initial);
-  set("hero-username", name);
+  set("hero-username", `${name} • ${empId}`);
   set("chat-user-name", name);
   set("chat-user-avatar", initial);
 }
 
+async function logUserAction(action, details) {
+  const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
+  const empId = u.empId || "HDFC-AI-101";
+  const userName = u.name || "Abhi";
+  try {
+    await api("/audit-logs", {
+      method: "POST",
+      body: JSON.stringify({ employee_id: empId, user_name: userName, action, details })
+    });
+    renderAuditLogs();
+  } catch (err) {
+    console.warn("Audit logging error:", err);
+  }
+}
+
+async function renderAuditLogs() {
+  const el = document.getElementById("activity-feed");
+  if (!el) return;
+  try {
+    const logs = await api("/audit-logs");
+    if (!logs || !logs.length) {
+      el.innerHTML = `<div style="font-size:12px;color:var(--text-muted);text-align:center;padding:12px">No recent activity recorded.</div>`;
+      return;
+    }
+    el.innerHTML = logs.slice(0, 10).map(l => `
+      <div class="activity-item" style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-light)">
+        <div style="width:28px;height:28px;border-radius:50%;background:rgba(59,130,246,0.15);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">
+          ${esc((l.user_name || "A")[0].toUpperCase())}
+        </div>
+        <div style="flex:1">
+          <div style="font-size:12px;font-weight:600;color:var(--text-main)">${esc(l.action)} — <span style="color:var(--ok);font-size:11px">${esc(l.employee_id)}</span></div>
+          <div style="font-size:11.5px;color:var(--text-secondary);margin-top:2px">${esc(l.details)}</div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:2px">${new Date(l.created_at).toLocaleString()}</div>
+        </div>
+      </div>
+    `).join("");
+  } catch (err) {
+    el.innerHTML = `<div style="font-size:12px;color:var(--text-muted);text-align:center;padding:12px">Activity log loading...</div>`;
+  }
+}
+
 const loginForm = document.getElementById("login-form");
 if (loginForm) {
-  loginForm.addEventListener("submit", (e) => {
+  loginForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const isRegister  = _currentAuthTab === "register";
     const fullNameInp = document.getElementById("login-fullname");
     const usernameInp = document.getElementById("login-username");
     const roleSel     = document.getElementById("login-role");
 
-    const name = (isRegister && fullNameInp?.value.trim()) ? fullNameInp.value.trim() : (usernameInp?.value.trim() || "AI Engineer");
-    const role = (isRegister && roleSel?.value) ? roleSel.value : "AI Engineer";
+    const name = (isRegister && fullNameInp?.value.trim()) ? fullNameInp.value.trim() : (usernameInp?.value.trim() || "Abhi");
+    const role = (isRegister && roleSel?.value) ? roleSel.value : "Lead AI Engineer";
+    const defaultEmpId = isRegister ? "HDFC-DEV-3301" : "HDFC-AI-101";
 
-    const user = { name, role, email: `${name.toLowerCase().replace(/\s+/g, ".")}@hdfcbank.com`, loginTime: Date.now() };
+    const user = { empId: defaultEmpId, name, role, email: `${name.toLowerCase().replace(/\s+/g, ".")}@hdfcbank.com`, loginTime: Date.now() };
     sessionStorage.setItem(USER_KEY, JSON.stringify(user));
     showApp();
     updateSidebarUser();
     bootApp();
-    showToast(isRegister ? `Account created! Welcome, ${name}.` : `Welcome back, ${name}.`, "ok");
+    logUserAction("USER_LOGIN", `${name} logged in with ${defaultEmpId}`);
+    showToast(isRegister ? `Account created! Welcome, ${name} (${defaultEmpId}).` : `Welcome back, ${name} (${defaultEmpId}).`, "ok");
   });
 }
 
@@ -1815,6 +1914,7 @@ function renderRetrieval(meta) {
   const gaugeEl = document.getElementById("confidence-gauge");
   const emptyEl = document.getElementById("retrieval-empty");
   const srcList = document.getElementById("sources-list");
+  const chunks  = meta.retrieved_chunks || [];
   if (!chunks || !chunks.length) { resetRetrieval(); return; }
   if (emptyEl) emptyEl.style.display = "none";
   if (gaugeEl) {
@@ -2135,7 +2235,8 @@ async function refreshAll() {
       renderEvaluations(),
       renderRegistry(),
       renderDeployments(),
-      renderMonitoring()
+      renderMonitoring(),
+      renderAuditLogs()
     ]);
     updateTimestamp();
     lucide.createIcons();

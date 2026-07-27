@@ -122,3 +122,25 @@ class InferenceLog(Base):
     confidence = Column(Integer, default=0)  # 0-100
     latency_ms = Column(Integer, default=0)
     created_at = Column(DateTime, default=now)
+
+
+class Employee(Base):
+    __tablename__ = "employees"
+    id = Column(String, primary_key=True)
+    employee_id = Column(String, unique=True, index=True, nullable=False)
+    full_name = Column(String, nullable=False)
+    email = Column(String, nullable=False)
+    role = Column(String, nullable=False)
+    department = Column(String, nullable=False)
+    created_at = Column(DateTime, default=now)
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+    id = Column(String, primary_key=True)
+    employee_id = Column(String, nullable=False)
+    user_name = Column(String, nullable=False)
+    action = Column(String, nullable=False)
+    details = Column(String, nullable=False)
+    created_at = Column(DateTime, default=now)
+

@@ -651,56 +651,85 @@
       <div class="profile-hero">
         <div class="user-avatar lg" id="modal-user-avatar">A</div>
         <div class="profile-meta">
-          <div class="profile-name" id="modal-user-name">AI Engineer</div>
-          <div class="profile-email" id="modal-user-email">engineer@hdfcbank.com</div>
+          <div class="profile-name" id="modal-user-name">Abhi</div>
+          <div class="profile-email" id="modal-user-email">abhi@hdfcbank.com</div>
           <div class="profile-badge-row">
-            <span class="badge ok" id="modal-user-role-badge">AI Engineer</span>
+            <span class="badge ok" id="modal-user-emp-badge"><i data-lucide="shield-check" style="width:11px;height:11px;margin-right:3px"></i> Verified HDFC Officer: HDFC-AI-101</span>
             <span class="badge blue">Tier 3 — Enterprise Admin</span>
           </div>
         </div>
       </div>
 
-      <div class="profile-section-title">Security &amp; Session Status</div>
+      <div class="profile-section-title">HDFC Security &amp; Access Controls</div>
       <div class="health-row">
-        <div class="health-row-key"><i data-lucide="shield-check" style="width:13px;height:13px;color:var(--ok)"></i> Encryption Standard</div>
-        <div class="health-row-val green">AES-256 / TLS 1.3</div>
+        <div class="health-row-key"><i data-lucide="shield-check" style="width:13px;height:13px;color:var(--ok)"></i> HDFC Employee Verification</div>
+        <div class="health-row-val green" id="modal-emp-id-val">HDFC-AI-101 (Verified)</div>
       </div>
       <div class="health-row">
-        <div class="health-row-key"><i data-lucide="map-pin" style="width:13px;height:13px;color:var(--blue)"></i> Workstation Access</div>
-        <div class="health-row-val blue">127.0.0.1 (Local Workstation)</div>
-      </div>
-      <div class="health-row">
-        <div class="health-row-key"><i data-lucide="key-round" style="width:13px;height:13px;color:var(--purple)"></i> Session Token Status</div>
-        <div class="health-row-val green">Active (sessionStorage)</div>
+        <div class="health-row-key"><i data-lucide="key-round" style="width:13px;height:13px;color:var(--purple)"></i> Authentication Standard</div>
+        <div class="health-row-val green">PostgreSQL Cloud DB Verified</div>
       </div>
 
-      <div class="profile-section-title">Update Display Settings</div>
+      <div class="profile-section-title">Update Profile &amp; Security</div>
       <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px">
         <div>
+          <label style="font-size:11.5px;color:var(--text-secondary);display:block;margin-bottom:4px">HDFC Unique Employee ID</label>
+          <input id="edit-profile-emp-id" type="text" class="input" style="width:100%" placeholder="e.g. HDFC-AI-101 or DEV 3301" value="HDFC-AI-101">
+        </div>
+        <div>
           <label style="font-size:11.5px;color:var(--text-secondary);display:block;margin-bottom:4px">Display Name</label>
-          <input id="edit-profile-name" type="text" class="input" style="width:100%" placeholder="Your Name">
+          <input id="edit-profile-name" type="text" class="input" style="width:100%" placeholder="Your Name" value="Abhi">
         </div>
         <div>
           <label style="font-size:11.5px;color:var(--text-secondary);display:block;margin-bottom:4px">Organizational Role</label>
           <select id="edit-profile-role" class="input" style="width:100%">
-            <option value="AI Engineer">AI Engineer (Enterprise)</option>
+            <option value="Lead AI Engineer">Lead AI Engineer (Abhi)</option>
             <option value="Risk &amp; Compliance Officer">Risk &amp; Compliance Officer</option>
             <option value="Security Auditor">Security &amp; Fraud Auditor</option>
             <option value="System Administrator">System Administrator</option>
           </select>
         </div>
-        <div>
-          <label style="font-size:11.5px;color:var(--text-secondary);display:block;margin-bottom:4px">Interface Theme</label>
-          <select id="edit-profile-theme" class="input" style="width:100%" onchange="applyTheme(this.value)">
-            <option value="dark">Midnight Executive Dark</option>
-            <option value="light">HDFC Corporate Light</option>
-          </select>
+        <div style="margin-top:4px">
+          <button type="button" class="btn-secondary" style="width:100%;color:var(--warn)" onclick="openResetPasswordModal()"><i data-lucide="key"></i> Reset Password / Recover Credentials</button>
         </div>
       </div>
     </div>
     <div class="modal-foot">
       <button type="button" class="btn-secondary" onclick="doLogout()"><i data-lucide="log-out"></i> Logout</button>
       <button type="button" class="btn-primary" onclick="saveUserProfile()"><i data-lucide="check"></i> Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Reset Password Modal -->
+<div id="reset-password-modal" class="modal-overlay" style="display:none">
+  <div class="modal-card" style="max-width:440px">
+    <div class="modal-head">
+      <div class="modal-title"><i data-lucide="key"></i> HDFC Credentials &amp; Password Reset</div>
+      <button class="modal-close" onclick="closeResetPasswordModal()">&times;</button>
+    </div>
+    <div class="modal-body" style="padding:16px">
+      <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">
+        To reset your credentials, enter your <b>Division Code</b> (e.g. <code>DEV</code>, <code>AI</code>, <code>EMP</code>, <code>GOV</code>) and your <b>Numeric Code</b> (e.g. <code>3301</code>, <code>101</code>, <code>4829</code>):
+      </p>
+      <div style="display:flex;gap:10px;margin-bottom:12px">
+        <div style="flex:1">
+          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">Division Code</label>
+          <input id="reset-div-code" class="input" style="width:100%;text-transform:uppercase" placeholder="e.g. DEV or AI" value="AI">
+        </div>
+        <div style="flex:1">
+          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">Numeric Code</label>
+          <input id="reset-num-code" class="input" style="width:100%" placeholder="e.g. 3301 or 101" value="101">
+        </div>
+      </div>
+      <div>
+        <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">New Password</label>
+        <input id="reset-new-pass" type="password" class="input" style="width:100%" placeholder="Enter new secure password">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn-secondary" onclick="closeResetPasswordModal()">Cancel</button>
+      <button type="button" class="btn-primary" onclick="submitResetPassword()"><i data-lucide="check-circle"></i> Verify &amp; Reset Password</button>
     </div>
   </div>
 </div>

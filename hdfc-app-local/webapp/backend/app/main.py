@@ -51,19 +51,47 @@ def on_startup():
 
     db = SessionLocal()
     try:
-        stale_runs = db.query(models.Run).filter(
-            models.Run.status.in_(["building", "queued"])
-        ).all()
+        stale_runs = db.query(models.Run).filter(models.Run.status.in_(["building", "queued"])).all()
         for run in stale_runs:
             run.status = "failed"
             run.error = "Server restarted while this build was in progress — re-trigger the run."
-        stale_evals = db.query(models.Evaluation).filter(
-            models.Evaluation.status.in_(["running", "queued"])
-        ).all()
+        stale_evals = db.query(models.Evaluation).filter(models.Evaluation.status.in_(["running", "queued"])).all()
         for ev in stale_evals:
             ev.status = "failed"
             ev.error = "Server restarted while this evaluation was in progress — re-trigger the evaluation."
         db.commit()
+
+        # Seed authorized HDFC employee directory if table is empty
+        if db.query(models.Employee).count() == 0:
+            initial_emps = [
+                {"employee_id": "HDFC-AI-101", "full_name": "Abhi", "email": "abhi@hdfcbank.com", "role": "Lead AI Engineer", "department": "AI & Machine Learning"},
+                {"employee_id": "HDFC-AI-102", "full_name": "Senior AI Architect", "email": "ai-arch@hdfcbank.com", "role": "Senior AI Systems Architect", "department": "AI & Machine Learning"},
+                {"employee_id": "HDFC-AI-103", "full_name": "RAG Alignment Specialist", "email": "rag-eval@hdfcbank.com", "role": "RAG & LLM Alignment Specialist", "department": "AI & Machine Learning"},
+                {"employee_id": "HDFC-AI-104", "full_name": "MLOps Infrastructure Lead", "email": "mlops@hdfcbank.com", "role": "MLOps Infrastructure Lead", "department": "AI & Machine Learning"},
+                {"employee_id": "HDFC-AI-105", "full_name": "NLP Data Scientist", "email": "nlp@hdfcbank.com", "role": "NLP Data Scientist", "department": "AI & Machine Learning"},
+
+                {"employee_id": "HDFC-EMP-4829", "full_name": "Senior Ops Manager", "email": "ops-lead@hdfcbank.com", "role": "Senior Banking Operations Manager", "department": "Banking Operations"},
+                {"employee_id": "HDFC-EMP-4830", "full_name": "Branch Executive", "email": "branch-ops@hdfcbank.com", "role": "Branch Operations Executive", "department": "Banking Operations"},
+                {"employee_id": "HDFC-EMP-5101", "full_name": "Personal Banking Officer", "email": "loans@hdfcbank.com", "role": "Personal Banking & Loans Officer", "department": "Banking Operations"},
+                {"employee_id": "HDFC-EMP-5102", "full_name": "Savings & FD Specialist", "email": "savings@hdfcbank.com", "role": "Fixed Deposit & Savings Specialist", "department": "Banking Operations"},
+                {"employee_id": "HDFC-EMP-5103", "full_name": "Corporate Relationship Lead", "email": "corporate@hdfcbank.com", "role": "Corporate Banking Relationship Manager", "department": "Banking Operations"},
+
+                {"employee_id": "HDFC-GOV-9901", "full_name": "Chief Compliance Officer", "email": "compliance@hdfcbank.com", "role": "Chief Risk & Compliance Officer", "department": "Governance & Compliance"},
+                {"employee_id": "HDFC-GOV-9902", "full_name": "Nodal Grievance Officer", "email": "nodal-officer@hdfcbank.com", "role": "Nodal Grievance Redressal Officer", "department": "Governance & Compliance"},
+                {"employee_id": "HDFC-GOV-9903", "full_name": "Regulatory Auditor", "email": "audit@hdfcbank.com", "role": "Financial Regulatory Nodal Auditor", "department": "Governance & Compliance"},
+                {"employee_id": "HDFC-GOV-9904", "full_name": "Data Privacy Officer", "email": "privacy@hdfcbank.com", "role": "Data Privacy & Compliance Officer", "department": "Governance & Compliance"},
+
+                {"employee_id": "HDFC-SEC-7701", "full_name": "Fraud Investigation Lead", "email": "fraud-prevent@hdfcbank.com", "role": "Senior Fraud Investigation Specialist", "department": "Cybersecurity & Fraud"},
+                {"employee_id": "HDFC-SEC-7702", "full_name": "InfoSec Access Officer", "email": "infosec@hdfcbank.com", "role": "Information Security & Access Control Lead", "department": "Cybersecurity & Fraud"},
+                {"employee_id": "HDFC-SEC-7703", "full_name": "AML Analyst", "email": "aml@hdfcbank.com", "role": "Anti-Money Laundering (AML) Analyst", "department": "Cybersecurity & Fraud"},
+
+                {"employee_id": "HDFC-DEV-3301", "full_name": "Core Pipeline Developer", "email": "pipeline-dev@hdfcbank.com", "role": "Core Pipeline Integration Developer", "department": "Enterprise IT"},
+                {"employee_id": "HDFC-DEV-3302", "full_name": "Cloud Platform Engineer", "email": "cloud-ops@hdfcbank.com", "role": "Cloud Platform Infrastructure Engineer", "department": "Enterprise IT"},
+                {"employee_id": "HDFC-DEV-3303", "full_name": "Full-Stack Engineer", "email": "fullstack@hdfcbank.com", "role": "Full-Stack Systems Engineer", "department": "Enterprise IT"},
+            ]
+            for emp in initial_emps:
+                db.add(models.Employee(id=f"emp-{uuid.uuid4().hex[:8]}", **emp))
+            db.commit()
     finally:
         db.close()
     local_llm.preload_models_background()
@@ -543,6 +571,58 @@ def monitoring(db: Session = Depends(get_db)):
         "avg_confidence": avg_confidence,
         "guardrail_breakdown": guardrail_breakdown,
     }
+
+
+# ----------------------------------------------------------------- employee auth & audit
+@app.post("/api/auth/verify-employee", response_model=schemas.EmployeeOut)
+def verify_employee(payload: schemas.EmployeeVerifyRequest, db: Session = Depends(get_db)):
+    raw_id = payload.employee_id.strip().upper()
+    # Normalize inputs like "DEV 3301", "DEV-3301", "3301", "AI 101" to HDFC-DEV-3301 / HDFC-AI-101
+    normalized = raw_id
+    if not normalized.startswith("HDFC-"):
+        parts = raw_id.replace("-", " ").split()
+        if len(parts) == 2:
+            normalized = f"HDFC-{parts[0]}-{parts[1]}"
+        elif len(parts) == 1 and parts[0].isdigit():
+            normalized = f"HDFC-AI-{parts[0]}"
+        elif len(parts) == 1:
+            normalized = f"HDFC-{parts[0]}"
+
+    emp = db.query(models.Employee).filter(
+        (models.Employee.employee_id == raw_id) | (models.Employee.employee_id == normalized)
+    ).first()
+
+    if not emp:
+        # Fallback search for partial numeric match like "3301" or "101"
+        num_part = ''.join(filter(str.isdigit, raw_id))
+        if num_part:
+            emp = db.query(models.Employee).filter(models.Employee.employee_id.like(f"%{num_part}%")).first()
+
+    if not emp:
+        raise HTTPException(404, f"Invalid HDFC Employee ID '{payload.employee_id}'. Please enter an authorized ID (e.g. HDFC-AI-101 or HDFC-DEV-3301).")
+
+    return emp
+
+
+@app.get("/api/audit-logs", response_model=list[schemas.AuditLogOut])
+def list_audit_logs(db: Session = Depends(get_db)):
+    return db.query(models.AuditLog).order_by(models.AuditLog.created_at.desc()).limit(50).all()
+
+
+@app.post("/api/audit-logs", response_model=schemas.AuditLogOut)
+def create_audit_log(payload: schemas.AuditLogCreate, db: Session = Depends(get_db)):
+    log = models.AuditLog(
+        id=new_id("log"),
+        employee_id=payload.employee_id,
+        user_name=payload.user_name,
+        action=payload.action,
+        details=payload.details,
+    )
+    db.add(log)
+    db.commit()
+    db.refresh(log)
+    return log
+
 
 
 @app.get("/api/health")
