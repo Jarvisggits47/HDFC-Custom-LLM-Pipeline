@@ -480,11 +480,25 @@ async function terminateSession(sessionId) {
   }
 }
 
-async function openTempPasscodeSignIn() {
-  const username = prompt("Enter your Registered Corporate Email or Employee ID:");
-  if (!username) return;
-  const passcode = prompt("Enter your 15-Minute Temporary Passcode (e.g. TMP-894201):");
-  if (!passcode) return;
+function openTempPasscodeSignIn() {
+  const modal = document.getElementById("temp-signin-modal");
+  if (modal) modal.style.display = "flex";
+  lucide.createIcons();
+}
+
+function closeTempSignInModal() {
+  const modal = document.getElementById("temp-signin-modal");
+  if (modal) modal.style.display = "none";
+}
+
+async function submitTempPasscodeSignIn() {
+  const username = document.getElementById("temp-login-username")?.value.trim() || "";
+  const passcode = document.getElementById("temp-login-passcode")?.value.trim().toUpperCase() || "";
+
+  if (!username || !passcode) {
+    showToast("Please enter both Corporate Email/ID and Temporary Passcode.", "warn");
+    return;
+  }
 
   try {
     const emp = await api("/auth/login-temp-passcode", {
@@ -494,6 +508,7 @@ async function openTempPasscodeSignIn() {
 
     const user = { empId: emp.employee_id, name: emp.full_name, role: emp.role, email: emp.email, sessionToken: emp.session_token, loginTime: Date.now() };
     sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+    closeTempSignInModal();
     resetUserSession();
     showApp();
     updateSidebarUser();
