@@ -469,7 +469,7 @@ def infer(payload: schemas.InferenceRequest, db: Session = Depends(get_db)):
                 raise HTTPException(400, "deployment has been rolled back")
             entry = db.query(models.ModelRegistryEntry).filter(models.ModelRegistryEntry.id == dep.model_id).first()
             run = db.query(models.Run).filter(models.Run.id == entry.run_id).first()
-            out = local_llm.call_adapted_model(run, payload.prompt, max_tokens=150, _retrieval_k=3, _chunk_limit=500)
+            out = local_llm.call_adapted_model(run, payload.prompt, max_tokens=250, _retrieval_k=3, _chunk_limit=500)
             answer = out["answer"]
             provider = out.get("provider", "unknown")
             served_by = (f"{dep.endpoint_name} ({dep.status}, {dep.traffic_pct}% traffic, "
@@ -480,7 +480,7 @@ def infer(payload: schemas.InferenceRequest, db: Session = Depends(get_db)):
             confidence = out["confidence"]
         else:
             answer, provider = local_llm.call_model(
-                local_llm.DEFAULT_MODEL, local_llm.GENERIC_SYSTEM_PROMPT, payload.prompt
+                local_llm.DEFAULT_MODEL, local_llm.GENERIC_SYSTEM_PROMPT, payload.prompt, max_tokens=250
             )
             served_by = f"base model via {provider}"
     except HTTPException:
