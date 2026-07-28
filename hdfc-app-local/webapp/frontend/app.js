@@ -291,6 +291,24 @@ function showLogin() {
   if (appShell) appShell.style.display = "none";
 }
 
+let _currentAuthRole = "employee";
+function setAuthRole(role) {
+  _currentAuthRole = role;
+  const roleEmpBtn = document.getElementById("role-btn-emp");
+  const roleUserBtn = document.getElementById("role-btn-user");
+  const roleInp = document.getElementById("login-account-role");
+
+  if (roleInp) roleInp.value = role;
+
+  if (role === "user") {
+    if (roleUserBtn) { roleUserBtn.style.background = "var(--blue)"; roleUserBtn.style.color = "#fff"; }
+    if (roleEmpBtn) { roleEmpBtn.style.background = "transparent"; roleEmpBtn.style.color = "var(--text-muted)"; }
+  } else {
+    if (roleEmpBtn) { roleEmpBtn.style.background = "var(--blue)"; roleEmpBtn.style.color = "#fff"; }
+    if (roleUserBtn) { roleUserBtn.style.background = "transparent"; roleUserBtn.style.color = "var(--text-muted)"; }
+  }
+}
+
 function showApp() {
   const login = document.getElementById("login-screen");
   if (login) {
@@ -299,6 +317,30 @@ function showApp() {
   }
   const appShell = document.getElementById("app-shell");
   if (appShell) appShell.style.display = "block";
+
+  const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
+  const isCustomer = u.account_role === "user" || u.role === "user";
+
+  const sidebarNav = document.getElementById("main-nav");
+  if (sidebarNav) {
+    const navItems = sidebarNav.querySelectorAll(".nav-item, .nav-section-label");
+    navItems.forEach(item => {
+      const tab = item.getAttribute("data-tab");
+      if (isCustomer) {
+        if (tab === "playground") {
+          item.style.display = "flex";
+        } else {
+          item.style.display = "none";
+        }
+      } else {
+        item.style.display = "";
+      }
+    });
+  }
+
+  if (isCustomer) {
+    switchTab("playground");
+  }
 }
 
 let _currentAuthTab = "login";
@@ -791,7 +833,8 @@ if (loginForm) {
           })
         });
 
-        const user = { empId: emp.employee_id, name: emp.full_name, role: emp.role, email: emp.email, loginTime: Date.now() };
+        const accountRole = document.getElementById("login-account-role")?.value || _currentAuthRole || "employee";
+        const user = { empId: emp.employee_id, name: emp.full_name, role: emp.role, account_role: accountRole, email: emp.email, loginTime: Date.now() };
         sessionStorage.setItem(USER_KEY, JSON.stringify(user));
         resetUserSession();
         showApp();
@@ -813,7 +856,8 @@ if (loginForm) {
           body: JSON.stringify({ username_or_id: usernameInp, password: passwordInp })
         });
 
-        const user = { empId: emp.employee_id, name: emp.full_name, role: emp.role, email: emp.email, loginTime: Date.now() };
+        const accountRole = document.getElementById("login-account-role")?.value || _currentAuthRole || "employee";
+        const user = { empId: emp.employee_id, name: emp.full_name, role: emp.role, account_role: accountRole, email: emp.email, loginTime: Date.now() };
         sessionStorage.setItem(USER_KEY, JSON.stringify(user));
         resetUserSession();
         showApp();
@@ -1934,10 +1978,19 @@ async function renderDeployments() {
   const sel = document.getElementById("infer-deployment-select");
   const prevVal = sel ? sel.value : "";
   const active = deps.filter(d => d.status !== "rolled_back");
+  const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
+  const isCustomer = u.account_role === "user" || u.role === "user";
+
   if (sel) {
-    sel.innerHTML =
-      `<option value="">Base model — no deployment, no banking context</option>` +
-      active.map(d => `<option value="${d.id}">${esc(d.endpoint_name || d.id)} (${esc(d.status)})</option>`).join("");
+    if (isCustomer) {
+      sel.innerHTML = active.length
+        ? active.map(d => `<option value="${d.id}">🏦 ${esc(d.endpoint_name || "HDFC AI Assistant")}</option>`).join("")
+        : `<option value="">🏦 HDFC Official AI Banking Assistant</option>`;
+    } else {
+      sel.innerHTML =
+        `<option value="">Base model — no deployment, no banking context</option>` +
+        active.map(d => `<option value="${d.id}">${esc(d.endpoint_name || d.id)} (${esc(d.status)})</option>`).join("");
+    }
     if (prevVal) sel.value = prevVal; // restore user's selection
   }
 }

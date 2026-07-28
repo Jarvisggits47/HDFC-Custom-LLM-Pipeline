@@ -213,12 +213,14 @@ def ingest_document(db: Session, dataset_id: str, filename: str, raw_text: str) 
 @app.post("/api/datasets", response_model=schemas.DatasetOut)
 def create_dataset(request: Request, payload: schemas.DatasetCreate, db: Session = Depends(get_db)):
     emp_id = get_emp_id_from_req(request)
+    assistant_title = (payload.assistant_name.strip() if payload.assistant_name and payload.assistant_name.strip() else f"{payload.name} AI")
     ds = models.Dataset(
         id=new_id("ds"),
         owner_employee_id=emp_id,
         name=payload.name,
         source=payload.source,
         purpose=payload.purpose,
+        assistant_name=assistant_title,
         classification=payload.classification,
     )
     db.add(ds)
@@ -442,6 +444,9 @@ def register_model(request: Request, payload: schemas.RegistryCreate, db: Sessio
     if ev.status != "completed":
         raise HTTPException(400, "evaluation has not completed yet")
 
+    ds = db.query(models.Dataset).filter(models.Dataset.id == run.dataset_id).first()
+    asst_name = (ds.assistant_name if ds and ds.assistant_name else f"HDFC Bank AI ({version})")
+
     version = f"v{db.query(models.ModelRegistryEntry).count() + 1}"
     model_card = {
         "run_id": run.id,
@@ -463,6 +468,7 @@ def register_model(request: Request, payload: schemas.RegistryCreate, db: Sessio
         run_id=run.id,
         evaluation_id=ev.id,
         version=version,
+        assistant_name=asst_name,
         status="registered",
         model_card=model_card,
     )
@@ -620,6 +626,111 @@ def infer(request: Request, payload: schemas.InferenceRequest, db: Session = Dep
         guardrail_category=guard["category"],
         guardrail_blocked=guard["blocked"],
     )
+
+
+@app.get("/api/user/assistants")
+def get_user_assistants(db: Session = Depends(get_db)):
+    models_list = db.query(models.ModelRegistryEntry).all()
+    results = []
+    for m in models_list:
+        run = db.query(models.Run).filter(models.Run.id == m.run_id).first()
+        ds = db.query(models.Dataset).filter(models.Dataset.id == run.dataset_id).first() if run else None
+        asst_title = m.assistant_name or (ds.assistant_name if ds else None) or (ds.name if ds else "HDFC Banking Assistant")
+        results.append({
+            "model_id": m.id,
+            "version": m.version,
+            "assistant_name": asst_title,
+            "status": m.status,
+            "dataset_name": ds.name if ds else "HDFC Policy Dataset"
+        })
+    if not results:
+        results.append({
+            "model_id": "default-banking-llm",
+            "version": "v1.0",
+            "assistant_name": "HDFC Official AI Banking Assistant",
+            "status": "active",
+            "dataset_name": "HDFC Core Policy"
+        })
+    return results
+
+
+@app.get("/api/user/chat-sessions")
+def get_user_chat_sessions(request: Request, db: Session = Depends(get_db)):
+    emp_id = get_emp_id_from_req(request)
+    msgs = db.query(models.UserChatMessage).filter(
+        models.UserChatMessage.user_id == emp_id
+    ).order_by(models.UserChatMessage.created_at.desc()).all()
+
+    sessions = {}
+    for m in msgs:
+        if m.session_id not in sessions:
+            sessions[m.session_id] = {
+                "session_id": m.session_id,
+                "assistant_name": m.assistant_name or "HDFC Banking Assistant",
+                "last_message": m.message[:60] + ("…" if len(m.message) > 60 else ""),
+                "created_at": m.created_at.isoformat()
+            }
+    return list(sessions.values())
+
+
+@app.get("/api/user/chat-history/{session_id}")
+def get_user_chat_history(session_id: str, request: Request, db: Session = Depends(get_db)):
+    emp_id = get_emp_id_from_req(request)
+    msgs = db.query(models.UserChatMessage).filter(
+        models.UserChatMessage.user_id == emp_id,
+        models.UserChatMessage.session_id == session_id
+    ).order_by(models.UserChatMessage.created_at.asc()).all()
+    return msgs
+
+
+@app.post("/api/user/chat")
+def user_chat_inference(request: Request, payload: schemas.UserChatMessageIn, db: Session = Depends(get_db)):
+    emp_id = get_emp_id_from_req(request)
+    start = time.time()
+
+    user_msg = models.UserChatMessage(
+        id=new_id("umsg"),
+        user_id=emp_id,
+        session_id=payload.session_id,
+        assistant_name=payload.assistant_name,
+        model_id=payload.model_id,
+        sender="user",
+        message=payload.message
+    )
+    db.add(user_msg)
+    db.commit()
+
+    guard = guardrails.check_prompt(payload.message)
+    if guard["blocked"]:
+        ans = f"⚠️ [GUARDRAIL BLOCK] Query blocked under safety policy ({guard['category']})."
+        citations = []
+    else:
+        dep = db.query(models.Deployment).filter(models.Deployment.status == "active").first()
+        dep_id = dep.id if dep else None
+        inf_req = schemas.InferenceRequest(deployment_id=dep_id, prompt=payload.message)
+        inf_res = predict(request, inf_req, db)
+        ans = inf_res.answer
+        citations = inf_res.citations
+
+    asst_msg = models.UserChatMessage(
+        id=new_id("amsg"),
+        user_id=emp_id,
+        session_id=payload.session_id,
+        assistant_name=payload.assistant_name,
+        model_id=payload.model_id,
+        sender="assistant",
+        message=ans,
+        citations=citations
+    )
+    db.add(asst_msg)
+    db.commit()
+
+    return {
+        "user_message": payload.message,
+        "answer": ans,
+        "citations": citations,
+        "session_id": payload.session_id
+    }
 
 
 @app.get("/api/monitoring")

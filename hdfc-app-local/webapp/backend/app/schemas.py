@@ -23,6 +23,7 @@ class DatasetCreate(BaseModel):
     name: str
     source: str
     purpose: str
+    assistant_name: Optional[str] = None
     classification: str = "internal"
     records: List[TaskRecordIn] = []
 
@@ -33,6 +34,7 @@ class DatasetOut(BaseModel):
     name: str
     source: str
     purpose: str
+    assistant_name: Optional[str] = None
     classification: str
     status: str
     record_count: int = 0
@@ -99,6 +101,7 @@ class RegistryOut(BaseModel):
     run_id: str
     evaluation_id: str
     version: str
+    assistant_name: Optional[str] = None
     status: str
     model_card: Dict[str, Any]
 
@@ -218,6 +221,28 @@ class AuditLogOut(BaseModel):
     user_name: str
     action: str
     details: str
+    created_at: Any
+
+    class Config:
+        from_attributes = True
+
+
+class UserChatMessageIn(BaseModel):
+    session_id: str
+    assistant_name: Optional[str] = None
+    model_id: Optional[str] = None
+    message: str
+
+
+class UserChatMessageOut(BaseModel):
+    id: str
+    user_id: str
+    session_id: str
+    assistant_name: Optional[str] = None
+    model_id: Optional[str] = None
+    sender: str
+    message: str
+    citations: List[str] = []
     created_at: Any
 
     class Config:

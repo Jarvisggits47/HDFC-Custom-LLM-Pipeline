@@ -14,6 +14,7 @@ class Dataset(Base):
     name = Column(String, nullable=False)
     source = Column(String, nullable=False)
     purpose = Column(String, nullable=False)
+    assistant_name = Column(String, nullable=True)
     classification = Column(String, default="internal")
     status = Column(String, default="registered")  # registered -> approved
     created_at = Column(DateTime, default=now)
@@ -101,6 +102,7 @@ class ModelRegistryEntry(Base):
     run_id = Column(String, ForeignKey("runs.id"))
     evaluation_id = Column(String, ForeignKey("evaluations.id"))
     version = Column(String, nullable=False)
+    assistant_name = Column(String, nullable=True)
     status = Column(String, default="registered")  # registered -> promoted -> decommissioned
     model_card = Column(JSON, default=dict)
     created_at = Column(DateTime, default=now)
@@ -137,8 +139,8 @@ class Employee(Base):
     employee_id = Column(String, unique=True, index=True, nullable=False)
     full_name = Column(String, nullable=False)
     email = Column(String, nullable=False)
-    role = Column(String, nullable=False)
-    department = Column(String, nullable=False)
+    role = Column(String, nullable=False, default="employee") # employee vs user
+    department = Column(String, nullable=False, default="AI Engineering")
     password = Column(String, nullable=False, default="Hdfc@2026")
     created_at = Column(DateTime, default=now)
 
@@ -174,5 +176,18 @@ class UserSession(Base):
     ip_address = Column(String, default="127.0.0.1")
     status = Column(String, default="active")  # active -> terminated -> expired
     expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=now)
+
+
+class UserChatMessage(Base):
+    __tablename__ = "user_chat_messages"
+    id = Column(String, primary_key=True)
+    user_id = Column(String, index=True, nullable=False)
+    session_id = Column(String, index=True, nullable=False)
+    assistant_name = Column(String, nullable=True)
+    model_id = Column(String, nullable=True)
+    sender = Column(String, nullable=False)  # user vs assistant
+    message = Column(String, nullable=False)
+    citations = Column(JSON, default=list)
     created_at = Column(DateTime, default=now)
 
