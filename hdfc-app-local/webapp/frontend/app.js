@@ -13,13 +13,13 @@ lucide.createIcons();
 
 // ---- Sample banking records ----
 const SAMPLE_RECORDS = [
-  { task_type:"response_drafting", instruction:"Customer asks if the bank can guarantee stock returns on a mutual fund.", response:"I'm not able to guarantee investment returns, as performance is subject to market risk. I can share the fund's historical performance and risk category, or connect you with a licensed investment advisor.", refusal_required:true, escalation_required:false, context:[], citations:[] },
-  { task_type:"response_drafting", instruction:"Customer says they suspect unauthorized transactions on their account.", response:"I understand this is concerning. I'm escalating this immediately to our fraud investigation team and will place a temporary hold on further transactions while we review your account. You will receive a case reference number shortly.", refusal_required:false, escalation_required:true, context:[], citations:[] },
-  { task_type:"grounded_question_answering", instruction:"What is the minimum balance requirement for a regular savings account?", response:"The minimum average monthly balance for a regular savings account is INR 10,000 in metro branches, per policy document policy-sav-001 effective 2026-04-01.", context:[{doc_id:"policy-sav-001",effective_date:"2026-04-01",text:"Regular savings accounts require a minimum average monthly balance of INR 10,000 in metro branches."}], citations:["policy-sav-001"], refusal_required:false, escalation_required:false },
-  { task_type:"response_drafting", instruction:"Customer asks for legal advice on a property dispute related to a home loan.", response:"I'm not able to provide legal advice on property disputes. I can share your loan account documents and connect you with the bank's legal or nodal officer for further assistance.", refusal_required:true, escalation_required:false, context:[], citations:[] },
-  { task_type:"grounded_question_answering", instruction:"Can a customer close a fixed deposit before maturity?", response:"Yes, premature closure is allowed, but a 1% penalty applies on the applicable interest rate, per policy-fd-014 effective 2026-02-15.", context:[{doc_id:"policy-fd-014",effective_date:"2026-02-15",text:"Premature withdrawal of fixed deposits is permitted subject to a penalty of 1% on the applicable interest rate."}], citations:["policy-fd-014"], refusal_required:false, escalation_required:false },
-  { task_type:"intent_classification", instruction:"Classify the intent: 'Can you waive the annual fee on my credit card?'", response:"intent: fee_waiver_request", context:[], citations:[], refusal_required:false, escalation_required:false },
-  { task_type:"terminology_normalization", instruction:"Rewrite in standard banking terminology: 'client didn't get money back from failed UPI'", response:"Customer reported a failed UPI transaction where the debited amount has not yet been reversed to the source account.", context:[], citations:[], refusal_required:false, escalation_required:false }
+  { task_type: "response_drafting", instruction: "Customer asks if the bank can guarantee stock returns on a mutual fund.", response: "I'm not able to guarantee investment returns, as performance is subject to market risk. I can share the fund's historical performance and risk category, or connect you with a licensed investment advisor.", refusal_required: true, escalation_required: false, context: [], citations: [] },
+  { task_type: "response_drafting", instruction: "Customer says they suspect unauthorized transactions on their account.", response: "I understand this is concerning. I'm escalating this immediately to our fraud investigation team and will place a temporary hold on further transactions while we review your account. You will receive a case reference number shortly.", refusal_required: false, escalation_required: true, context: [], citations: [] },
+  { task_type: "grounded_question_answering", instruction: "What is the minimum balance requirement for a regular savings account?", response: "The minimum average monthly balance for a regular savings account is INR 10,000 in metro branches, per policy document policy-sav-001 effective 2026-04-01.", context: [{ doc_id: "policy-sav-001", effective_date: "2026-04-01", text: "Regular savings accounts require a minimum average monthly balance of INR 10,000 in metro branches." }], citations: ["policy-sav-001"], refusal_required: false, escalation_required: false },
+  { task_type: "response_drafting", instruction: "Customer asks for legal advice on a property dispute related to a home loan.", response: "I'm not able to provide legal advice on property disputes. I can share your loan account documents and connect you with the bank's legal or nodal officer for further assistance.", refusal_required: true, escalation_required: false, context: [], citations: [] },
+  { task_type: "grounded_question_answering", instruction: "Can a customer close a fixed deposit before maturity?", response: "Yes, premature closure is allowed, but a 1% penalty applies on the applicable interest rate, per policy-fd-014 effective 2026-02-15.", context: [{ doc_id: "policy-fd-014", effective_date: "2026-02-15", text: "Premature withdrawal of fixed deposits is permitted subject to a penalty of 1% on the applicable interest rate." }], citations: ["policy-fd-014"], refusal_required: false, escalation_required: false },
+  { task_type: "intent_classification", instruction: "Classify the intent: 'Can you waive the annual fee on my credit card?'", response: "intent: fee_waiver_request", context: [], citations: [], refusal_required: false, escalation_required: false },
+  { task_type: "terminology_normalization", instruction: "Rewrite in standard banking terminology: 'client didn't get money back from failed UPI'", response: "Customer reported a failed UPI transaction where the debited amount has not yet been reversed to the source account.", context: [], citations: [], refusal_required: false, escalation_required: false }
 ];
 
 // ===================================================
@@ -86,7 +86,7 @@ setInterval(async () => {
         sessionStorage.removeItem(USER_KEY);
         setTimeout(() => window.location.reload(), 800);
       }
-    } catch (e) {}
+    } catch (e) { }
   }
 }, 5000);
 
@@ -123,11 +123,11 @@ function generateSparkData(peak, index) {
 }
 
 function drawSparkline(canvas, values, colorStr) {
-  const dpr  = window.devicePixelRatio || 1;
+  const dpr = window.devicePixelRatio || 1;
   const rect = canvas.getBoundingClientRect();
   const w = rect.width || canvas.offsetWidth || 160;
   const h = 36;
-  canvas.width  = w * dpr;
+  canvas.width = w * dpr;
   canvas.height = h * dpr;
   const ctx = canvas.getContext("2d");
   ctx.scale(dpr, dpr);
@@ -157,8 +157,8 @@ function drawSparkline(canvas, values, colorStr) {
 
   ctx.beginPath();
   pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.bezierCurveTo(
-    pts[i-1].x + (p.x - pts[i-1].x) * 0.4, pts[i-1].y,
-    p.x - (p.x - pts[i-1].x) * 0.4, p.y,
+    pts[i - 1].x + (p.x - pts[i - 1].x) * 0.4, pts[i - 1].y,
+    p.x - (p.x - pts[i - 1].x) * 0.4, p.y,
     p.x, p.y
   ));
   ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.closePath();
@@ -167,8 +167,8 @@ function drawSparkline(canvas, values, colorStr) {
   // Stroke line
   ctx.beginPath();
   pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.bezierCurveTo(
-    pts[i-1].x + (p.x - pts[i-1].x) * 0.4, pts[i-1].y,
-    p.x - (p.x - pts[i-1].x) * 0.4, p.y,
+    pts[i - 1].x + (p.x - pts[i - 1].x) * 0.4, pts[i - 1].y,
+    p.x - (p.x - pts[i - 1].x) * 0.4, p.y,
     p.x, p.y
   ));
   ctx.strokeStyle = c;
@@ -242,7 +242,7 @@ function applyTheme(theme) {
   }
   localStorage.setItem(THEME_KEY, theme);
 
-  const btn  = document.getElementById("dark-toggle");
+  const btn = document.getElementById("dark-toggle");
   const icon = document.getElementById("dark-icon");
   if (btn && icon) {
     btn.title = theme === "light" ? "Switch to Dark Mode" : "Switch to Light Mode";
@@ -305,25 +305,25 @@ let _currentAuthTab = "login";
 
 function switchAuthTab(tab) {
   _currentAuthTab = tab;
-  const loginTabBtn  = document.getElementById("tab-login-btn");
-  const regTabBtn    = document.getElementById("tab-register-btn");
+  const loginTabBtn = document.getElementById("tab-login-btn");
+  const regTabBtn = document.getElementById("tab-register-btn");
   const regNameField = document.getElementById("reg-name-field");
-  const regEmpField  = document.getElementById("reg-emp-field");
+  const regEmpField = document.getElementById("reg-emp-field");
   const regRoleField = document.getElementById("reg-role-field");
-  const btnText      = document.getElementById("login-btn-text");
+  const btnText = document.getElementById("login-btn-text");
 
   if (tab === "register") {
     loginTabBtn?.classList.remove("active");
     regTabBtn?.classList.add("active");
     if (regNameField) regNameField.style.display = "block";
-    if (regEmpField)  regEmpField.style.display = "block";
+    if (regEmpField) regEmpField.style.display = "block";
     if (regRoleField) regRoleField.style.display = "block";
     if (btnText) btnText.textContent = "Create Account";
   } else {
     regTabBtn?.classList.remove("active");
     loginTabBtn?.classList.add("active");
     if (regNameField) regNameField.style.display = "none";
-    if (regEmpField)  regEmpField.style.display = "none";
+    if (regEmpField) regEmpField.style.display = "none";
     if (regRoleField) regRoleField.style.display = "none";
     if (btnText) btnText.textContent = "Secure Login";
   }
@@ -365,12 +365,12 @@ function closeUserProfileModal() {
 }
 
 async function saveUserProfile() {
-  const empInp  = document.getElementById("edit-profile-emp-id");
+  const empInp = document.getElementById("edit-profile-emp-id");
   const nameInp = document.getElementById("edit-profile-name");
   const roleSel = document.getElementById("edit-profile-role");
   const rawEmpId = empInp?.value.trim() || "HDFC-AI-101";
-  const name     = nameInp?.value.trim() || "Abhi";
-  const role     = roleSel?.value || "Lead AI Engineer";
+  const name = nameInp?.value.trim() || "Abhi";
+  const role = roleSel?.value || "Lead AI Engineer";
 
   try {
     const emp = await api("/auth/verify-employee", {
@@ -380,8 +380,8 @@ async function saveUserProfile() {
 
     const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
     u.empId = emp.employee_id;
-    u.name  = name || emp.full_name;
-    u.role  = role || emp.role;
+    u.name = name || emp.full_name;
+    u.role = role || emp.role;
     u.email = emp.email;
     sessionStorage.setItem(USER_KEY, JSON.stringify(u));
 
@@ -395,9 +395,9 @@ async function saveUserProfile() {
 }
 
 function openPasswordModal(tab = 'update') {
-  const modal     = document.getElementById("password-modal");
+  const modal = document.getElementById("password-modal");
   const updateBtn = document.getElementById("tab-pass-update-btn");
-  const tempBtn   = document.getElementById("tab-pass-temp-btn");
+  const tempBtn = document.getElementById("tab-pass-temp-btn");
 
   if (!modal) return;
 
@@ -428,12 +428,12 @@ function closePasswordModal() {
 }
 
 function switchPasswordTab(tab) {
-  const updateBtn   = document.getElementById("tab-pass-update-btn");
-  const forgotBtn   = document.getElementById("tab-pass-forgot-btn");
-  const tempBtn     = document.getElementById("tab-pass-temp-btn");
+  const updateBtn = document.getElementById("tab-pass-update-btn");
+  const forgotBtn = document.getElementById("tab-pass-forgot-btn");
+  const tempBtn = document.getElementById("tab-pass-temp-btn");
   const updatePanel = document.getElementById("pass-panel-update");
   const forgotPanel = document.getElementById("pass-panel-forgot");
-  const tempPanel   = document.getElementById("pass-panel-temp");
+  const tempPanel = document.getElementById("pass-panel-temp");
 
   [updateBtn, forgotBtn, tempBtn].forEach(b => b?.classList.remove("active"));
   [updatePanel, forgotPanel, tempPanel].forEach(p => { if (p) p.style.display = "none"; });
@@ -459,9 +459,9 @@ function switchPasswordTab(tab) {
 
 async function checkLatestTempPasscode() {
   const codeDisplay = document.getElementById("temp-code-display");
-  const codeVal     = document.getElementById("temp-passcode-val");
-  const codeTimer   = document.getElementById("temp-timer");
-  const subText     = document.getElementById("temp-status-subtext");
+  const codeVal = document.getElementById("temp-passcode-val");
+  const codeTimer = document.getElementById("temp-timer");
+  const subText = document.getElementById("temp-status-subtext");
   if (!codeDisplay || !codeVal) return;
 
   try {
@@ -512,7 +512,7 @@ async function checkLatestTempPasscode() {
         }
       }, 1000);
     }
-  } catch (err) {}
+  } catch (err) { }
 }
 
 async function generateTempPasscode() {
@@ -635,9 +635,9 @@ async function submitTempPasscodeSignIn() {
 }
 
 async function submitForgotPassword() {
-  const email       = document.getElementById("forgot-email")?.value.trim() || "";
-  const empId       = document.getElementById("forgot-empid")?.value.trim() || "";
-  const newPass     = document.getElementById("forgot-new-pass")?.value || "";
+  const email = document.getElementById("forgot-email")?.value.trim() || "";
+  const empId = document.getElementById("forgot-empid")?.value.trim() || "";
+  const newPass = document.getElementById("forgot-new-pass")?.value || "";
   const confirmPass = document.getElementById("forgot-confirm-pass")?.value || "";
 
   if (!email || !empId || !newPass || !confirmPass) {
@@ -658,7 +658,7 @@ async function submitForgotPassword() {
 
     const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
     u.empId = emp.employee_id;
-    u.name  = emp.full_name;
+    u.name = emp.full_name;
     u.email = emp.email;
     sessionStorage.setItem(USER_KEY, JSON.stringify(u));
     updateSidebarUser();
@@ -672,8 +672,8 @@ async function submitForgotPassword() {
 }
 
 function submitUpdatePassword() {
-  const currPass    = document.getElementById("update-curr-pass")?.value || "";
-  const newPass     = document.getElementById("update-new-pass")?.value || "";
+  const currPass = document.getElementById("update-curr-pass")?.value || "";
+  const newPass = document.getElementById("update-new-pass")?.value || "";
   const confirmPass = document.getElementById("update-confirm-pass")?.value || "";
 
   if (!currPass || !newPass || !confirmPass) {
@@ -704,9 +704,9 @@ function submitUpdatePassword() {
 
 function updateSidebarUser() {
   const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
-  const empId   = u.empId || "HDFC-AI-101";
-  const name    = u.name || "Abhi";
-  const role    = u.role || "Lead AI Engineer";
+  const empId = u.empId || "HDFC-AI-101";
+  const name = u.name || "Abhi";
+  const role = u.role || "Lead AI Engineer";
   const initial = (name || "A")[0].toUpperCase();
   const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
   set("user-name", `${name} (${empId})`);
@@ -762,12 +762,12 @@ const loginForm = document.getElementById("login-form");
 if (loginForm) {
   loginForm.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const isRegister  = _currentAuthTab === "register";
+    const isRegister = _currentAuthTab === "register";
     const fullNameInp = document.getElementById("login-fullname")?.value.trim() || "";
-    const empIdInp    = document.getElementById("login-empid")?.value.trim() || "";
+    const empIdInp = document.getElementById("login-empid")?.value.trim() || "";
     const usernameInp = document.getElementById("login-username")?.value.trim() || "";
     const passwordInp = document.getElementById("login-password")?.value || "";
-    const roleSel     = document.getElementById("login-role")?.value || "Lead AI Engineer";
+    const roleSel = document.getElementById("login-role")?.value || "Lead AI Engineer";
 
     if (!passwordInp) {
       showToast("Please enter your password.", "warn");
@@ -906,19 +906,19 @@ async function checkHealth() {
   try {
     const h = await api("/health");
     _health = h;
-    const dot  = document.getElementById("api-dot");
+    const dot = document.getElementById("api-dot");
     const text = document.getElementById("api-status-text");
     const banner = document.getElementById("key-banner");
-    const note   = document.getElementById("serving-model-note");
+    const note = document.getElementById("serving-model-note");
     const factoryBadge = document.getElementById("factory-model-badge");
 
     const statusMap = {
-      ready:   { cls: "ok",   label: "Model ready" },
+      ready: { cls: "ok", label: "Model ready" },
       loading: { cls: "warn", label: "Model loading…" },
-      failed:  { cls: "bad",  label: "Model load failed" }
+      failed: { cls: "bad", label: "Model load failed" }
     };
     const s = statusMap[h.status] || { cls: "", label: "Status unknown" };
-    if (dot)  dot.className  = `api-dot ${s.cls}`;
+    if (dot) dot.className = `api-dot ${s.cls}`;
     if (text) text.textContent = h.model ? `${h.model.split("/").pop()}` : s.label;
     if (factoryBadge && h.model) factoryBadge.innerHTML = `<i data-lucide="cpu"></i> ${esc(h.model.split("/").pop())}`;
 
@@ -932,7 +932,7 @@ async function checkHealth() {
     }
 
     if (note) {
-      if (h.status === "ready")   note.textContent = `CPU inference — ${safe(h.model, "unknown model")}. Expect a few seconds per response.`;
+      if (h.status === "ready") note.textContent = `CPU inference — ${safe(h.model, "unknown model")}. Expect a few seconds per response.`;
       else if (h.status === "loading") note.textContent = "Model is still loading — first inference will be slow.";
       else note.textContent = "";
     }
@@ -950,9 +950,9 @@ async function checkHealth() {
     }
     lucide.createIcons({ nodes: [document.querySelector(".sidebar")] });
   } catch (e) {
-    const dot  = document.getElementById("api-dot");
+    const dot = document.getElementById("api-dot");
     const text = document.getElementById("api-status-text");
-    if (dot)  dot.className   = "api-dot bad";
+    if (dot) dot.className = "api-dot bad";
     if (text) text.textContent = "API unreachable";
   }
 }
@@ -975,21 +975,21 @@ async function renderDashboard() {
   updateDateTime();
 
   // --- KPI cards ---
-  const totalChunks   = datasets.reduce((s, d) => s + (d.chunk_count || 0), 0);
-  const liveDeploys   = deployments.filter(d => d.status !== "rolled_back").length;
+  const totalChunks = datasets.reduce((s, d) => s + (d.chunk_count || 0), 0);
+  const liveDeploys = deployments.filter(d => d.status !== "rolled_back").length;
   const totalRequests = monitoring.total_requests ?? 0;
-  const avgConf       = Math.min(100, monitoring.avg_confidence ?? 0);
-  const apiOk         = h.status === "ready" ? 100 : h.status === "loading" ? 50 : 0;
+  const avgConf = Math.min(100, monitoring.avg_confidence ?? 0);
+  const apiOk = h.status === "ready" ? 100 : h.status === "loading" ? 50 : 0;
 
   const kpis = [
-    { label:"Datasets",           value: datasets.length,   icon:"database",     grad:"var(--grad-blue)",   color:"var(--blue)" },
-    { label:"Total Chunks",       value: totalChunks,       icon:"layers",       grad:"var(--grad-teal)",   color:"var(--teal)" },
-    { label:"Adapter Runs",       value: runs.length,       icon:"cpu",          grad:"var(--grad-purple)", color:"var(--purple)" },
-    { label:"Evaluations",        value: evals.length,      icon:"shield-check", grad:"var(--grad-amber)",  color:"var(--warn)" },
-    { label:"Registry Models",    value: registry.length,   icon:"library",      grad:"var(--grad-green)",  color:"var(--ok)" },
-    { label:"Live Deployments",   value: liveDeploys,       icon:"rocket",       grad:"var(--grad-red)",    color:"var(--accent)" },
-    { label:"Avg Confidence",     value: avgConf, suffix:"%", icon:"bar-chart-2", grad:"var(--grad-blue)",  color:"var(--blue)" },
-    { label:"API Health",         value: apiOk, suffix:"%", icon:"activity",     grad:"var(--grad-green)",  color:"var(--ok)", pulse:true }
+    { label: "Datasets", value: datasets.length, icon: "database", grad: "var(--grad-blue)", color: "var(--blue)" },
+    { label: "Total Chunks", value: totalChunks, icon: "layers", grad: "var(--grad-teal)", color: "var(--teal)" },
+    { label: "Adapter Runs", value: runs.length, icon: "cpu", grad: "var(--grad-purple)", color: "var(--purple)" },
+    { label: "Evaluations", value: evals.length, icon: "shield-check", grad: "var(--grad-amber)", color: "var(--warn)" },
+    { label: "Registry Models", value: registry.length, icon: "library", grad: "var(--grad-green)", color: "var(--ok)" },
+    { label: "Live Deployments", value: liveDeploys, icon: "rocket", grad: "var(--grad-red)", color: "var(--accent)" },
+    { label: "Avg Confidence", value: avgConf, suffix: "%", icon: "bar-chart-2", grad: "var(--grad-blue)", color: "var(--blue)" },
+    { label: "API Health", value: apiOk, suffix: "%", icon: "activity", grad: "var(--grad-green)", color: "var(--ok)", pulse: true }
   ];
 
   const kpiGrid = document.getElementById("kpi-grid");
@@ -1027,16 +1027,16 @@ async function renderDashboard() {
   }
 
   // --- Pipeline stepper ---
-  const hasChunks       = datasets.some(d => (d.chunk_count || 0) > 0);
-  const hasApproved     = datasets.some(d => d.status === "approved");
+  const hasChunks = datasets.some(d => (d.chunk_count || 0) > 0);
+  const hasApproved = datasets.some(d => d.status === "approved");
   const hasCompletedRun = runs.some(r => r.status === "completed");
-  const hasActiveRun    = runs.some(r => r.status === "building" || r.status === "queued");
-  const hasPassedEval   = evals.some(e => e.gate_pass === true);
-  const latestEval      = evals.length ? evals[evals.length - 1] : null;
-  const evalBlocked     = !hasPassedEval && latestEval && latestEval.gate_pass === false;
-  const evalActive      = evals.some(e => e.status === "running" || e.status === "queued");
-  const hasActiveDep    = deployments.some(d => d.status === "active" || d.status === "canary");
-  const hasLiveDep      = deployments.some(d => d.traffic_pct > 0);
+  const hasActiveRun = runs.some(r => r.status === "building" || r.status === "queued");
+  const hasPassedEval = evals.some(e => e.gate_pass === true);
+  const latestEval = evals.length ? evals[evals.length - 1] : null;
+  const evalBlocked = !hasPassedEval && latestEval && latestEval.gate_pass === false;
+  const evalActive = evals.some(e => e.status === "running" || e.status === "queued");
+  const hasActiveDep = deployments.some(d => d.status === "active" || d.status === "canary");
+  const hasLiveDep = deployments.some(d => d.traffic_pct > 0);
 
   function stepStatus(cond, activeOverride, blockedOverride) {
     if (blockedOverride) return "blocked";
@@ -1046,18 +1046,18 @@ async function renderDashboard() {
   }
 
   const steps = [
-    { name:"Dataset",       st: stepStatus(datasets.length > 0) },
-    { name:"Upload",        st: stepStatus(hasChunks) },
-    { name:"Chunking",      st: stepStatus(hasChunks) },
-    { name:"Approval",      st: stepStatus(hasApproved) },
-    { name:"Adapter Build", st: stepStatus(hasCompletedRun, hasActiveRun) },
-    { name:"Eval Gate",     st: stepStatus(hasPassedEval, evalActive, evalBlocked) },
-    { name:"Registry",      st: stepStatus(registry.length > 0) },
-    { name:"Deploy",        st: stepStatus(hasActiveDep, deployments.length > 0 && !hasActiveDep) },
-    { name:"Live",          st: stepStatus(hasLiveDep) }
+    { name: "Dataset", st: stepStatus(datasets.length > 0) },
+    { name: "Upload", st: stepStatus(hasChunks) },
+    { name: "Chunking", st: stepStatus(hasChunks) },
+    { name: "Approval", st: stepStatus(hasApproved) },
+    { name: "Adapter Build", st: stepStatus(hasCompletedRun, hasActiveRun) },
+    { name: "Eval Gate", st: stepStatus(hasPassedEval, evalActive, evalBlocked) },
+    { name: "Registry", st: stepStatus(registry.length > 0) },
+    { name: "Deploy", st: stepStatus(hasActiveDep, deployments.length > 0 && !hasActiveDep) },
+    { name: "Live", st: stepStatus(hasLiveDep) }
   ];
 
-  const statusText = { done:"Done", active:"In progress", pending:"Pending", blocked:"Blocked" };
+  const statusText = { done: "Done", active: "In progress", pending: "Pending", blocked: "Blocked" };
   const stepperEl = document.getElementById("pipeline-stepper");
   if (stepperEl) {
     stepperEl.innerHTML = steps.map((s, i) => `
@@ -1075,16 +1075,16 @@ async function renderDashboard() {
   }
 
   // --- Panel 1: System Health ---
-  const llmStatus = h.status === "ready" ? { cls:"green", label:"Ready" }
-    : h.status === "loading" ? { cls:"yellow", label:"Loading…" }
-    : h.status === "failed"  ? { cls:"red",    label:"Failed" }
-    : { cls:"gray", label:"Unknown" };
+  const llmStatus = h.status === "ready" ? { cls: "green", label: "Ready" }
+    : h.status === "loading" ? { cls: "yellow", label: "Loading…" }
+      : h.status === "failed" ? { cls: "red", label: "Failed" }
+        : { cls: "gray", label: "Unknown" };
   const runDone = hasCompletedRun;
   const healthRows = [
-    { key:"API Server",       val:"Operational", cls:"green" },
-    { key:"LLM Model",        val: llmStatus.label, cls: llmStatus.cls },
-    { key:"Embedding Model",  val: runDone ? "Ready" : "No adapter built", cls: runDone ? "green" : "gray" },
-    { key:"Vector Retriever", val: runDone ? "Ready" : "Build a run first", cls: runDone ? "green" : "gray" }
+    { key: "API Server", val: "Operational", cls: "green" },
+    { key: "LLM Model", val: llmStatus.label, cls: llmStatus.cls },
+    { key: "Embedding Model", val: runDone ? "Ready" : "No adapter built", cls: runDone ? "green" : "gray" },
+    { key: "Vector Retriever", val: runDone ? "Ready" : "Build a run first", cls: runDone ? "green" : "gray" }
   ];
   const healthEl = document.getElementById("health-rows");
   if (healthEl) {
@@ -1106,8 +1106,8 @@ async function renderDashboard() {
     } else {
       const cases = (lastDone.results?.adapted_model_results) || [];
       const passed = cases.filter(c => c.passed).length;
-      const total  = cases.length || 1;
-      const pct    = Math.round((passed / total) * 100);
+      const total = cases.length || 1;
+      const pct = Math.round((passed / total) * 100);
       const passColor = pct >= 70 ? "#10b981" : pct >= 40 ? "#f59e0b" : "#ef4444";
       evalEl.innerHTML = `
         <div class="eval-donut-row">
@@ -1136,10 +1136,10 @@ async function renderDashboard() {
     const latMs = monitoring.avg_latency_ms ?? 0;
     const latLabel = latMs >= 1000 ? (latMs / 1000).toFixed(2) + " s" : Math.round(latMs) + " ms";
     const rows = [
-      { key:"Total Requests", val: monitoring.total_requests ?? 0 },
-      { key:"Avg Latency",    val: latLabel },
-      { key:"Avg Confidence", val: Math.min(100, monitoring.avg_confidence ?? 0).toFixed(1) + "%" },
-      { key:"Escalations",    val: monitoring.escalation_count ?? 0 }
+      { key: "Total Requests", val: monitoring.total_requests ?? 0 },
+      { key: "Avg Latency", val: latLabel },
+      { key: "Avg Confidence", val: Math.min(100, monitoring.avg_confidence ?? 0).toFixed(1) + "%" },
+      { key: "Escalations", val: monitoring.escalation_count ?? 0 }
     ];
     statsEl.innerHTML = rows.map(r => `
       <div class="infer-stat-row">
@@ -1153,16 +1153,16 @@ async function renderDashboard() {
   const actEl = document.getElementById("activity-feed");
   if (actEl) {
     const items = [
-      ...runs.map(r => ({ icon:"cpu",          title: r.name || r.id,          status: r.status,  type:"adapter run" })),
-      ...evals.map(e => ({ icon:"shield-check", title: `Eval ${e.id}`,          status: e.status,  type:"evaluation" })),
-      ...deployments.map(d => ({ icon:"rocket", title: d.endpoint_name || d.id, status: d.status,  type:"deployment" }))
+      ...runs.map(r => ({ icon: "cpu", title: r.name || r.id, status: r.status, type: "adapter run" })),
+      ...evals.map(e => ({ icon: "shield-check", title: `Eval ${e.id}`, status: e.status, type: "evaluation" })),
+      ...deployments.map(d => ({ icon: "rocket", title: d.endpoint_name || d.id, status: d.status, type: "deployment" }))
     ].slice(-6).reverse();
 
     if (!items.length) {
       actEl.innerHTML = `<div class="empty-state"><i data-lucide="inbox"></i>No activity yet</div>`;
       lucide.createIcons({ nodes: [actEl] });
     } else {
-      const badgeMap = { queued:"neutral", building:"warn", running:"warn", completed:"ok", passed:"ok", failed:"bad", rolled_back:"bad", canary:"warn", active:"ok" };
+      const badgeMap = { queued: "neutral", building: "warn", running: "warn", completed: "ok", passed: "ok", failed: "bad", rolled_back: "bad", canary: "warn", active: "ok" };
       actEl.innerHTML = items.map(it => `
         <div class="activity-item">
           <div class="activity-icon"><i data-lucide="${it.icon}"></i></div>
@@ -1197,9 +1197,9 @@ document.getElementById("dataset-form").addEventListener("submit", async e => {
     await api("/datasets", {
       method: "POST",
       body: JSON.stringify({
-        name:           form.get("name"),
-        source:         form.get("source"),
-        purpose:        form.get("purpose"),
+        name: form.get("name"),
+        source: form.get("source"),
+        purpose: form.get("purpose"),
         classification: form.get("classification"),
         records
       })
@@ -1233,7 +1233,7 @@ function runProcessStepper() {
   const render = () => {
     el.innerHTML = PROCESS_STAGES.map((s, i) => {
       const st = i < cur ? "done" : i === cur ? "active" : "";
-      const icon = i < cur ? '<i data-lucide="check" style="width:12px;height:12px"></i>' : (i === cur ? '<span class="spinner" style="width:12px;height:12px"></span>' : `${i+1}`);
+      const icon = i < cur ? '<i data-lucide="check" style="width:12px;height:12px"></i>' : (i === cur ? '<span class="spinner" style="width:12px;height:12px"></span>' : `${i + 1}`);
       return `
         <div class="pstep ${st}" style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;background:${i <= cur ? 'rgba(59,130,246,0.1)' : 'var(--bg-main)'};border:1px solid ${i === cur ? 'var(--blue)' : 'var(--border-light)'}">
           <span class="pstep-dot" style="width:20px;height:20px;border-radius:50%;background:${i < cur ? 'var(--ok)' : i === cur ? 'var(--blue)' : 'var(--border)'};color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700">${icon}</span>
@@ -1268,11 +1268,11 @@ function finishProcessStepper() {
 
 // PDF Upload
 document.getElementById("upload-pdf-btn").addEventListener("click", async () => {
-  const dsId      = document.getElementById("upload-dataset-select").value;
+  const dsId = document.getElementById("upload-dataset-select").value;
   const fileInput = document.getElementById("pdf-file-input");
   const resultBox = document.getElementById("upload-result");
-  if (!dsId)                    return showToast("Select a dataset first.", "warn");
-  if (!fileInput.files.length)  return showToast("Choose a PDF or DOCX file first.", "warn");
+  if (!dsId) return showToast("Select a dataset first.", "warn");
+  if (!fileInput.files.length) return showToast("Choose a PDF or DOCX file first.", "warn");
   const fd = new FormData();
   fd.append("file", fileInput.files[0]);
   resultBox.textContent = "";
@@ -1301,11 +1301,11 @@ document.getElementById("upload-pdf-btn").addEventListener("click", async () => 
 
 // Text Upload (backend expects Form, not JSON)
 document.getElementById("upload-text-btn").addEventListener("click", async () => {
-  const dsId     = document.getElementById("upload-dataset-select").value;
+  const dsId = document.getElementById("upload-dataset-select").value;
   const filename = document.getElementById("paste-filename").value || "pasted-document.txt";
-  const text     = document.getElementById("paste-text").value;
+  const text = document.getElementById("paste-text").value;
   const resultBox = document.getElementById("upload-result");
-  if (!dsId)        return showToast("Select a dataset first.", "warn");
+  if (!dsId) return showToast("Select a dataset first.", "warn");
   if (!text.trim()) return showToast("Paste some text first.", "warn");
   const fd = new FormData();
   fd.append("filename", filename);
@@ -1366,7 +1366,7 @@ function renderDatasetTable(datasets) {
   tbody.innerHTML = datasets.map(ds => {
     const isApproved = ds.status === "approved";
     const canApprove = !isApproved && ((ds.chunk_count || 0) > 0 || (ds.record_count || 0) > 0);
-    const hasChunks  = (ds.chunk_count || 0) > 0;
+    const hasChunks = (ds.chunk_count || 0) > 0;
     return `<tr class="${!isApproved ? 'pending-dataset-row' : ''}">
       <td class="td-name">
         <div style="font-weight:700;color:var(--text-primary);display:flex;align-items:center">
@@ -1427,13 +1427,13 @@ async function renderDatasets() {
 
   // Stat tiles
   const approved = datasets.filter(d => d.status === "approved");
-  const pending  = datasets.filter(d => d.status !== "approved");
-  const totalChunks  = datasets.reduce((s, d) => s + (d.chunk_count || 0), 0);
+  const pending = datasets.filter(d => d.status !== "approved");
+  const totalChunks = datasets.reduce((s, d) => s + (d.chunk_count || 0), 0);
   const totalRecords = datasets.reduce((s, d) => s + (d.record_count || 0), 0);
   const maxDs = Math.max(datasets.length, 1);
 
   const setTile = (id, val) => { const el = document.getElementById(id); if (el) animateCount(el, val); };
-  const setBar  = (id, pct) => { const el = document.getElementById(id); if (el) el.style.width = Math.min(100, pct) + "%"; };
+  const setBar = (id, pct) => { const el = document.getElementById(id); if (el) el.style.width = Math.min(100, pct) + "%"; };
   setTile("doc-stat-total", datasets.length);
   setTile("doc-stat-approved", approved.length);
   setTile("doc-stat-pending", pending.length);
@@ -1497,9 +1497,9 @@ document.getElementById("run-form")?.addEventListener("submit", async e => {
     await api("/runs", {
       method: "POST",
       body: JSON.stringify({
-        dataset_id:    dsId,
+        dataset_id: dsId,
         serving_model: form.get("serving_model") || "SmolLM2-360M-Instruct",
-        name:          form.get("name") || "adapter-run"
+        name: form.get("name") || "adapter-run"
       })
     });
     showToast("Adapter run started in background.", "ok");
@@ -1519,9 +1519,9 @@ async function renderRuns() {
     list.innerHTML = `<div class="item-card"><div class="empty-state"><i data-lucide="cpu"></i>No adapter runs yet. Register and approve a dataset first.</div></div>`;
     lucide.createIcons({ nodes: [list] });
   } else {
-    const badgeMap = { queued:"neutral", building:"warn", completed:"ok", failed:"bad" };
-    const edgeMap  = { building:"pulse-border-warn", failed:"pulse-border-bad" };
-    const sorted   = runs.slice().reverse();
+    const badgeMap = { queued: "neutral", building: "warn", completed: "ok", failed: "bad" };
+    const edgeMap = { building: "pulse-border-warn", failed: "pulse-border-bad" };
+    const sorted = runs.slice().reverse();
     list.innerHTML = sorted.map((run, idx) => {
       const isLatest = idx === 0;
       return `
@@ -1589,24 +1589,24 @@ async function cancelEval(evalId) {
 let evalPollHandle = null;
 
 function evalStageText(pct) {
-  if (pct <= 0)  return "Waiting to start…";
-  if (pct < 15)  return "Loading model on CPU…";
-  if (pct < 20)  return "Preparing dataset…";
-  if (pct < 50)  return "Running base model calls…";
-  if (pct < 85)  return "Running adapted model calls…";
-  if (pct < 95)  return "Scoring results…";
+  if (pct <= 0) return "Waiting to start…";
+  if (pct < 15) return "Loading model on CPU…";
+  if (pct < 20) return "Preparing dataset…";
+  if (pct < 50) return "Running base model calls…";
+  if (pct < 85) return "Running adapted model calls…";
+  if (pct < 95) return "Scoring results…";
   return "Finalising report…";
 }
 
 function buildEvalCardHTML(ev) {
-  const badgeMap = { queued:"neutral", running:"warn", completed:"ok", failed:"bad" };
-  const results  = ev.results || {};
-  const cases    = results.adapted_model_results || [];
+  const badgeMap = { queued: "neutral", running: "warn", completed: "ok", failed: "bad" };
+  const results = ev.results || {};
+  const cases = results.adapted_model_results || [];
   const gateLabel = ev.status !== "completed" ? esc(ev.status)
     : ev.gate_pass ? "Gate: PASS" : "Gate: BLOCKED";
-  const gateCls  = ev.status !== "completed" ? badgeMap[ev.status] || "neutral"
+  const gateCls = ev.status !== "completed" ? badgeMap[ev.status] || "neutral"
     : ev.gate_pass ? "ok" : "bad";
-  const pct      = ev.progress ?? 0;
+  const pct = ev.progress ?? 0;
   const isActive = ev.status === "running" || ev.status === "queued";
 
   // Stage pills helper
@@ -1671,19 +1671,19 @@ async function renderEvaluations() {
     // Surgical update path: if same eval IDs already in DOM and eval is running & status is unchanged,
     // only update the progress bar + % text — no innerHTML swap, no blink
     const existingCards = [...list.querySelectorAll("[data-eval-id]")];
-    const existingIds   = existingCards.map(el => el.dataset.evalId);
-    const newIds        = evals.map(e => e.id);
-    const canPatch      = existingIds.length === newIds.length && newIds.every((id, i) => existingIds[i] === id && existingCards[i].dataset.evalStatus === evals[i].status);
+    const existingIds = existingCards.map(el => el.dataset.evalId);
+    const newIds = evals.map(e => e.id);
+    const canPatch = existingIds.length === newIds.length && newIds.every((id, i) => existingIds[i] === id && existingCards[i].dataset.evalStatus === evals[i].status);
 
     if (canPatch) {
       evals.forEach(ev => {
-        const pct    = ev.progress ?? 0;
+        const pct = ev.progress ?? 0;
         const progEl = document.getElementById("eprog-" + ev.id);
-        const pctEl  = document.getElementById("epct-"  + ev.id);
-        const txtEl  = document.getElementById("estxt-" + ev.id);
-        if (progEl) progEl.style.width    = pct + "%";
-        if (pctEl)  pctEl.textContent     = pct + "%";
-        if (txtEl)  txtEl.textContent     = evalStageText(pct);
+        const pctEl = document.getElementById("epct-" + ev.id);
+        const txtEl = document.getElementById("estxt-" + ev.id);
+        if (progEl) progEl.style.width = pct + "%";
+        if (pctEl) pctEl.textContent = pct + "%";
+        if (txtEl) txtEl.textContent = evalStageText(pct);
       });
     } else {
       list.innerHTML = evals.map(buildEvalCardHTML).join("");
@@ -1716,14 +1716,14 @@ document.getElementById("registry-form").addEventListener("submit", async e => {
   const evalId = form.get("evaluation_id");
   if (!evalId) return showToast("Run a passing evaluation first.", "warn");
   const evalSel = document.getElementById("registry-eval-select");
-  const runId   = evalSel.options[evalSel.selectedIndex]?.dataset?.runId || "";
+  const runId = evalSel.options[evalSel.selectedIndex]?.dataset?.runId || "";
   try {
     await api("/registry", {
       method: "POST",
       body: JSON.stringify({
         evaluation_id: evalId,
-        run_id:        runId,
-        owner:         form.get("owner") || "unassigned"
+        run_id: runId,
+        owner: form.get("owner") || "unassigned"
       })
     });
     e.target.reset();
@@ -1733,7 +1733,7 @@ document.getElementById("registry-form").addEventListener("submit", async e => {
 });
 
 function copyText(txt) {
-  navigator.clipboard?.writeText(txt).then(() => showToast("Copied to clipboard.", "ok")).catch(() => {});
+  navigator.clipboard?.writeText(txt).then(() => showToast("Copied to clipboard.", "ok")).catch(() => { });
 }
 
 let _registryEntries = [];
@@ -1789,16 +1789,16 @@ async function renderRegistry() {
     });
 
     const existingIds = [...list.querySelectorAll("[data-model-id]")].map(el => el.dataset.modelId);
-    const newIds      = sorted.map(m => String(m.id));
-    const canPatch    = existingIds.length === newIds.length && newIds.every((id, i) => existingIds[i] === id);
+    const newIds = sorted.map(m => String(m.id));
+    const canPatch = existingIds.length === newIds.length && newIds.every((id, i) => existingIds[i] === id);
 
     if (!canPatch) {
       list.innerHTML = sorted.map((m, idx) => {
-        const hash  = m.model_card?.adapter_hash || m.adapter_hash || m.id;
+        const hash = m.model_card?.adapter_hash || m.adapter_hash || m.id;
         const owner = m.model_card?.owner || "unassigned";
         const isNewest = idx === 0;
-        const rawVer   = m.version || "v16";
-        const vTag     = rawVer.toLowerCase().startsWith("v") ? rawVer : "v" + rawVer;
+        const rawVer = m.version || "v16";
+        const vTag = rawVer.toLowerCase().startsWith("v") ? rawVer : "v" + rawVer;
         const displayVer = vTag.startsWith("banking-llm-") ? vTag : "banking-llm-" + vTag;
         return `
         <div class="model-card${isNewest ? " model-card-recent" : ""}" data-model-id="${m.id}">
@@ -1881,10 +1881,10 @@ function renderDeploySummary(deps) {
   const rolledBack = deps.filter(d => d.status === "rolled_back").length;
   const maxTraffic = Math.max(0, ...active.map(d => d.traffic_pct || 0));
   const cards = [
-    { label:"Active Deployments", html:`<div class="s-value">${active.length}</div>`, c:"var(--blue)" },
-    { label:"Peak Traffic", html:`<div class="s-value">${maxTraffic}%</div><div class="traffic-mini"><span style="width:${maxTraffic}%"></span></div>`, c:"var(--teal)" },
-    { label:"Total Deployments", html:`<div class="s-value">${deps.length}</div>`, c:"var(--purple)" },
-    { label:"Rollbacks", html:`<div class="s-value" style="color:${rolledBack ? "var(--warn)" : "inherit"}">${rolledBack}</div>`, c:"var(--warn)" }
+    { label: "Active Deployments", html: `<div class="s-value">${active.length}</div>`, c: "var(--blue)" },
+    { label: "Peak Traffic", html: `<div class="s-value">${maxTraffic}%</div><div class="traffic-mini"><span style="width:${maxTraffic}%"></span></div>`, c: "var(--teal)" },
+    { label: "Total Deployments", html: `<div class="s-value">${deps.length}</div>`, c: "var(--purple)" },
+    { label: "Rollbacks", html: `<div class="s-value" style="color:${rolledBack ? "var(--warn)" : "inherit"}">${rolledBack}</div>`, c: "var(--warn)" }
   ];
   row.innerHTML = cards.map((c, i) => `
     <div class="summary-card" style="--c:${c.c};animation-delay:${i * 0.05}s">
@@ -1904,10 +1904,10 @@ async function renderDeployments() {
     list.innerHTML = `<div class="item-card"><div class="empty-state"><i data-lucide="rocket"></i>No deployments yet. Register a model, then promote it.</div></div>`;
     lucide.createIcons({ nodes: [list] });
   } else {
-    const edgeMap  = { canary:"edge-warn", active:"edge-ok", rolled_back:"edge-bad" };
-    const badgeMap = { canary:"warn",      active:"ok",      rolled_back:"bad" };
+    const edgeMap = { canary: "edge-warn", active: "edge-ok", rolled_back: "edge-bad" };
+    const badgeMap = { canary: "warn", active: "ok", rolled_back: "bad" };
     // Newest first; most recent non-rolled-back gets green "recent" highlight
-    const sorted   = deps.slice().reverse();
+    const sorted = deps.slice().reverse();
     const newestActiveIdx = sorted.findIndex(d => d.status !== "rolled_back");
     list.innerHTML = sorted.map((d, idx) => {
       const isRecent = idx === newestActiveIdx;
@@ -1931,9 +1931,9 @@ async function renderDeployments() {
   }
 
   // Populate playground deployment select — preserve user's current selection
-  const sel     = document.getElementById("infer-deployment-select");
+  const sel = document.getElementById("infer-deployment-select");
   const prevVal = sel ? sel.value : "";
-  const active  = deps.filter(d => d.status !== "rolled_back");
+  const active = deps.filter(d => d.status !== "rolled_back");
   if (sel) {
     sel.innerHTML =
       `<option value="">Base model — no deployment, no banking context</option>` +
@@ -1954,15 +1954,15 @@ function loadConversations() {
   catch { return []; }
 }
 function saveConversations(convs) {
-  try { localStorage.setItem(CHAT_KEY, JSON.stringify(convs.slice(-40))); } catch(_) {}
+  try { localStorage.setItem(CHAT_KEY, JSON.stringify(convs.slice(-40))); } catch (_) { }
 }
 function getConv(id) { return loadConversations().find(c => c.id === id); }
 
 function saveConversation(id, messages) {
   const convs = loadConversations();
-  const idx   = convs.findIndex(c => c.id === id);
+  const idx = convs.findIndex(c => c.id === id);
   const title = (messages.find(m => m.role === "user")?.content || "New chat").slice(0, 60);
-  const conv  = { id, title, messages, time: Date.now() };
+  const conv = { id, title, messages, time: Date.now() };
   if (idx >= 0) convs[idx] = conv; else convs.push(conv);
   saveConversations(convs);
 }
@@ -1978,7 +1978,7 @@ function renderConversationList() {
   el.innerHTML = convs.map(c => `
     <div class="conv-item ${c.id === currentConvId ? "active" : ""}" onclick="openConversation('${c.id}')">
       <div class="conv-preview">${esc(c.title)}</div>
-      <div class="conv-time">${new Date(c.time).toLocaleString("en-US",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})}</div>
+      <div class="conv-time">${new Date(c.time).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</div>
       <button class="conv-del" onclick="event.stopPropagation();deleteConversation('${c.id}')" title="Delete"><i data-lucide="trash-2"></i></button>
     </div>`).join("");
   lucide.createIcons({ nodes: [el] });
@@ -2130,17 +2130,17 @@ function renderMessageHTML(m) {
     const initial = (JSON.parse(sessionStorage.getItem(USER_KEY) || "{}").name || "A")[0].toUpperCase();
     return `<div class="msg user"><div class="msg-avatar">${esc(initial)}</div><div class="msg-bubble">${esc(m.content)}</div></div>`;
   }
-  const meta    = m.meta || {};
-  let content   = trimIncomplete(m.content || "");
-  let noteHTML  = "";
+  const meta = m.meta || {};
+  let content = trimIncomplete(m.content || "");
+  let noteHTML = "";
   if (content.includes("__AMBER_NOTE_BOX__")) {
-    content  = content.replace("__AMBER_NOTE_BOX__", "").trimEnd();
+    content = content.replace("__AMBER_NOTE_BOX__", "").trimEnd();
     noteHTML = `<div class="msg-note-box amber"><i data-lucide="shield-check"></i> <span><b>Bank Policy Note:</b> Key guidelines rendered above. For full documentation, refer to HDFC Policy Portal.</span></div>`;
   }
 
-  const badges  = [];
-  if (meta.escalation_required)  badges.push(`<span class="badge warn">Escalation required</span>`);
-  if (meta.guardrail_blocked)     badges.push(`<span class="badge bad">Blocked: ${esc(meta.guardrail_category || "unknown")}</span>`);
+  const badges = [];
+  if (meta.escalation_required) badges.push(`<span class="badge warn">Escalation required</span>`);
+  if (meta.guardrail_blocked) badges.push(`<span class="badge bad">Blocked: ${esc(meta.guardrail_category || "unknown")}</span>`);
   else if (meta.guardrail_category && meta.guardrail_category !== "general")
     badges.push(`<span class="badge neutral">${esc(meta.guardrail_category)}</span>`);
 
@@ -2218,10 +2218,10 @@ const BANKING_AI_FACTS = [
 let _factTimer = null;
 
 function showGenerationIndicator() {
-  const el   = document.getElementById("chat-messages");
+  const el = document.getElementById("chat-messages");
   const wrap = document.createElement("div");
   wrap.className = "msg bot";
-  wrap.id        = "gen-indicator";
+  wrap.id = "gen-indicator";
 
   // Pick a random starting fact each time
   let factIdx = Math.floor(Math.random() * BANKING_AI_FACTS.length);
@@ -2276,12 +2276,12 @@ function renderRetrieval(meta) {
   const gaugeEl = document.getElementById("confidence-gauge");
   const emptyEl = document.getElementById("retrieval-empty");
   const srcList = document.getElementById("sources-list");
-  const chunks  = meta.retrieved_chunks || [];
+  const chunks = meta.retrieved_chunks || [];
   if (!chunks || !chunks.length) { resetRetrieval(); return; }
   if (emptyEl) emptyEl.style.display = "none";
   if (gaugeEl) {
-    const conf   = Math.min(100, meta.confidence ?? 0);
-    const color  = conf >= 70 ? "#10b981" : conf >= 40 ? "#f59e0b" : "#ef4444";
+    const conf = Math.min(100, meta.confidence ?? 0);
+    const color = conf >= 70 ? "#10b981" : conf >= 40 ? "#f59e0b" : "#ef4444";
     const r = 52, circ = 2 * Math.PI * r, offset = circ * (1 - conf / 100);
     const ms = meta.latency_ms ?? 0;
     const latTxt = ms >= 1000 ? (ms / 1000).toFixed(1) + "s" : ms + "ms";
@@ -2302,16 +2302,16 @@ function renderRetrieval(meta) {
   }
   if (srcList) {
     srcList.innerHTML = chunks.length
-      ? chunks.map((chunk, i) => `<div class="source-chunk"><div class="source-tag">SOURCE ${i+1}</div>${esc(String(chunk).slice(0, 300))}${String(chunk).length > 300 ? "…" : ""}</div>`).join("")
+      ? chunks.map((chunk, i) => `<div class="source-chunk"><div class="source-tag">SOURCE ${i + 1}</div>${esc(String(chunk).slice(0, 300))}${String(chunk).length > 300 ? "…" : ""}</div>`).join("")
       : `<div style="font-size:12px;color:var(--text-muted);text-align:center;padding:10px">No sources retrieved.</div>`;
   }
 }
 
 async function sendInference() {
-  const input  = document.getElementById("chat-input");
+  const input = document.getElementById("chat-input");
   const prompt = input.value.trim();
   if (!prompt) return;
-  const sendBtn      = document.getElementById("chat-send-btn");
+  const sendBtn = document.getElementById("chat-send-btn");
   const deploymentId = document.getElementById("infer-deployment-select")?.value || null;
 
   if (!currentConvId) currentConvId = "conv-" + Date.now();
@@ -2359,7 +2359,7 @@ async function sendInference() {
 
 // Chat input wiring
 const chatInput = document.getElementById("chat-input");
-const chatSend  = document.getElementById("chat-send-btn");
+const chatSend = document.getElementById("chat-send-btn");
 if (chatInput) {
   chatInput.addEventListener("input", () => {
     chatInput.style.height = "auto";
@@ -2375,7 +2375,7 @@ document.getElementById("clear-chat-btn")?.addEventListener("click", () => { new
 
 function toggleSources() {
   const shell = document.querySelector(".chat-shell");
-  const btn   = document.getElementById("toggle-sources-btn");
+  const btn = document.getElementById("toggle-sources-btn");
   if (!shell || !btn) return;
   const hidden = shell.classList.toggle("sources-hidden");
   btn.classList.toggle("active", !hidden);
@@ -2411,9 +2411,9 @@ function exportChatConversation() {
   });
 
   const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement("a");
-  a.href     = url;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
   a.download = `hdfc_chat_transcript_${Date.now()}.md`;
   document.body.appendChild(a);
   a.click();
@@ -2479,13 +2479,13 @@ async function renderMonitoring() {
   catch { mon = {}; }
   _latestMonData = mon;
 
-  const totalReq   = mon.total_requests ?? 0;
-  const latMs      = mon.avg_latency_ms ?? 0;
-  const latLabel   = latMs >= 1000 ? (latMs / 1000).toFixed(2) + " s" : Math.round(latMs) + " ms";
-  const escCount   = mon.escalation_count ?? 0;
-  const escPct     = totalReq > 0 ? ((escCount / totalReq) * 100).toFixed(1) + "%" : "0.0%";
-  const guardHits  = Object.values(mon.guardrail_breakdown || {}).reduce((a, b) => a + b, 0);
-  const blockPct   = totalReq > 0 ? ((guardHits / totalReq) * 100).toFixed(1) + "%" : "0.0%";
+  const totalReq = mon.total_requests ?? 0;
+  const latMs = mon.avg_latency_ms ?? 0;
+  const latLabel = latMs >= 1000 ? (latMs / 1000).toFixed(2) + " s" : Math.round(latMs) + " ms";
+  const escCount = mon.escalation_count ?? 0;
+  const escPct = totalReq > 0 ? ((escCount / totalReq) * 100).toFixed(1) + "%" : "0.0%";
+  const guardHits = Object.values(mon.guardrail_breakdown || {}).reduce((a, b) => a + b, 0);
+  const blockPct = totalReq > 0 ? ((guardHits / totalReq) * 100).toFixed(1) + "%" : "0.0%";
 
   const telemetryMetrics = [
     {
