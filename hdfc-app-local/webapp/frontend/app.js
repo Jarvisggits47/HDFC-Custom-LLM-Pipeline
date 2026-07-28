@@ -776,13 +776,16 @@ function updateSidebarUser() {
     set("user-name", name);
     set("user-role", "Customer User");
     set("hero-username", name);
+    set("chat-user-name", name);
+    set("chat-user-role", "Customer User");
   } else {
     set("user-name", `${name} (${empId})`);
     set("user-role", role);
     set("hero-username", `${name} • ${empId}`);
+    set("chat-user-name", name);
+    set("chat-user-role", role);
   }
   set("user-avatar", initial);
-  set("chat-user-name", name);
   set("chat-user-avatar", initial);
 }
 
@@ -2068,15 +2071,20 @@ async function renderDeployments() {
 // PLAYGROUND — CHAT
 // ===================================================
 
-const CHAT_KEY = "hdfc_conversations";
+function getChatKey() {
+  const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
+  const userId = u.empId || u.name || "default";
+  return `hdfc_conversations_${userId}`;
+}
+
 let currentConvId = null;
 
 function loadConversations() {
-  try { return JSON.parse(localStorage.getItem(CHAT_KEY) || "[]"); }
+  try { return JSON.parse(localStorage.getItem(getChatKey()) || "[]"); }
   catch { return []; }
 }
 function saveConversations(convs) {
-  try { localStorage.setItem(CHAT_KEY, JSON.stringify(convs.slice(-40))); } catch (_) { }
+  try { localStorage.setItem(getChatKey(), JSON.stringify(convs.slice(-40))); } catch (_) { }
 }
 function getConv(id) { return loadConversations().find(c => c.id === id); }
 
