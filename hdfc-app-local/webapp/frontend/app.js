@@ -765,15 +765,23 @@ function submitUpdatePassword() {
 
 function updateSidebarUser() {
   const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
-  const empId = u.empId || "HDFC-AI-101";
-  const name = u.name || "Abhi";
-  const role = u.role || "Lead AI Engineer";
-  const initial = (name || "A")[0].toUpperCase();
+  const isCustomer = u.account_role === "user" || u.role === "user";
+  const empId = u.empId || (isCustomer ? "Customer" : "HDFC-AI-101");
+  const name = u.name || (isCustomer ? "Customer User" : "Abhi");
+  const role = isCustomer ? "Customer Account" : (u.role || "Lead AI Engineer");
+  const initial = (name || "C")[0].toUpperCase();
   const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-  set("user-name", `${name} (${empId})`);
-  set("user-role", role);
+
+  if (isCustomer) {
+    set("user-name", name);
+    set("user-role", "Customer User");
+    set("hero-username", name);
+  } else {
+    set("user-name", `${name} (${empId})`);
+    set("user-role", role);
+    set("hero-username", `${name} • ${empId}`);
+  }
   set("user-avatar", initial);
-  set("hero-username", `${name} • ${empId}`);
   set("chat-user-name", name);
   set("chat-user-avatar", initial);
 }
@@ -1539,6 +1547,14 @@ async function renderDatasets() {
       ? datasets.map(d => `<option value="${d.id}">${esc(d.name)} (${d.record_count ?? 0} records, ${d.chunk_count ?? 0} chunks)</option>`).join("")
       : `<option value="">No datasets created — register one above</option>`;
   }
+
+  // Populate AI Factory run dataset select
+  const runSel = document.getElementById("run-dataset-select");
+  if (runSel) {
+    runSel.innerHTML = datasets.length
+      ? datasets.map(d => `<option value="${d.id}">${esc(d.name)} (${d.chunk_count ?? 0} chunks · ${esc(d.status || 'approved')})</option>`).join("")
+      : `<option value="">No datasets created — register one under Documents tab</option>`;
+  }
 }
 
 // Dropzone
@@ -2012,15 +2028,22 @@ async function renderDeployments() {
   const isCustomer = u.account_role === "user" || u.role === "user";
 
   if (sel) {
-    if (isCustomer) {
-      sel.innerHTML = active.length
-        ? active.map(d => `<option value="${d.id}">🏦 ${esc(d.endpoint_name || "HDFC AI Assistant")}</option>`).join("")
-        : `<option value="">🏦 HDFC Official AI Banking Assistant</option>`;
+    let options = [];
+    if (active.length) {
+      options = active.map(d => `<option value="${d.id}">🏦 ${esc(d.endpoint_name || "HDFC AI Assistant")}${isCustomer ? '' : ' (' + d.status + ')'}</option>`);
+    } else if (typeof _registryEntries !== "undefined" && _registryEntries.length) {
+      options = _registryEntries.map(m => `<option value="${m.id}">🏦 ${esc(m.assistant_name || m.version || 'HDFC AI Model')}</option>`);
+    } else if (typeof _allDatasets !== "undefined" && _allDatasets.length) {
+      options = _allDatasets.map(d => `<option value="${d.id}">🏦 ${esc(d.assistant_name || d.name + ' AI')}</option>`);
     } else {
-      sel.innerHTML =
-        `<option value="">Base model — no deployment, no banking context</option>` +
-        active.map(d => `<option value="${d.id}">${esc(d.endpoint_name || d.id)} (${esc(d.status)})</option>`).join("");
+      options = [`<option value="">🏦 HDFC Official AI Banking Assistant</option>`];
     }
+
+    if (!isCustomer) {
+      options.unshift(`<option value="">Base model — no deployment, no banking context</option>`);
+    }
+
+    sel.innerHTML = options.join("");
     if (prevVal) sel.value = prevVal; // restore user's selection
   }
 }
@@ -2710,13 +2733,30 @@ function resetUserSession() {
 function bootApp(forceReset = false) {
   if (_booted && !forceReset) return;
   _booted = true;
+  const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
+  const isCustomer = u.account_role === "user" || u.role === "user";
+
   renderQuickChips();
   if (typeof newConversation === "function") newConversation();
-  refreshAll();
+
+  if (isCustomer) {
+    switchTab("playground");
+    renderDeployments();
+  } else {
+    refreshAll();
+  }
+
   if (!window._intervalsBooted) {
     window._intervalsBooted = true;
     setInterval(checkHealth, 10000);
-    setInterval(refreshAll, 30000);
+    setInterval(() => {
+      const currUser = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
+      if (currUser.account_role !== "user" && currUser.role !== "user") {
+        refreshAll();
+      } else {
+        renderDeployments();
+      }
+    }, 30000);
   }
 }
 
