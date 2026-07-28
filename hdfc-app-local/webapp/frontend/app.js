@@ -187,12 +187,17 @@ function drawSparkline(canvas, values, colorStr) {
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
-function animateCount(el, target, suffix = "") {
+function animateCount(el, target, suffix = "", skipAnim = false) {
   if (!el) return;
-  const duration = 1100;
-  const start = performance.now();
-  const from = 0;
   const isFloat = !Number.isInteger(target);
+  const formattedTarget = (isFloat ? target.toFixed(1) : Math.round(target)) + suffix;
+  if (skipAnim || el.textContent === formattedTarget) {
+    el.textContent = formattedTarget;
+    return;
+  }
+  const duration = 800;
+  const start = performance.now();
+  const from = parseFloat(el.textContent) || 0;
   function tick(now) {
     const p = Math.min((now - start) / duration, 1);
     const eased = 1 - Math.pow(1 - p, 3);
@@ -805,6 +810,7 @@ function doLogout() {
 
 document.querySelectorAll(".nav-item[data-tab]").forEach(btn => {
   btn.addEventListener("click", () => {
+    if (btn.classList.contains("active")) return;
     document.querySelectorAll(".nav-item").forEach(b => b.classList.remove("active"));
     document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
     btn.classList.add("active");
@@ -944,28 +950,36 @@ async function renderDashboard() {
 
   const kpiGrid = document.getElementById("kpi-grid");
   if (kpiGrid) {
-    kpiGrid.innerHTML = kpis.map((k, i) => `
-      <div class="kpi-card ${k.pulse ? "pulse" : ""}" style="--card-color:${k.color};--card-grad:${k.grad};--delay:${i * 0.05}s" data-kpi="${i}">
-        <div class="kpi-top">
-          <div class="kpi-icon"><i data-lucide="${k.icon}"></i></div>
-          <span class="kpi-trend up"><i data-lucide="trending-up"></i> Live</span>
-        </div>
-        <div class="kpi-value" data-target="${k.value}" data-suffix="${k.suffix || ""}">0</div>
-        <div class="kpi-label">${esc(k.label)}</div>
-        <div class="sparkline-wrap"><canvas id="spark-${i}" height="36"></canvas></div>
-      </div>
-    `).join("");
-    lucide.createIcons({ nodes: [kpiGrid] });
-    kpiGrid.querySelectorAll(".kpi-value").forEach(el => {
-      animateCount(el, parseFloat(el.dataset.target) || 0, el.dataset.suffix);
-    });
-    // Draw sparklines after DOM settles
-    requestAnimationFrame(() => {
+    const existingCards = kpiGrid.querySelectorAll(".kpi-card");
+    if (existingCards.length === kpis.length) {
       kpis.forEach((k, i) => {
-        const canvas = document.getElementById(`spark-${i}`);
-        if (canvas) drawSparkline(canvas, generateSparkData(k.value, i), k.color);
+        const valEl = existingCards[i].querySelector(".kpi-value");
+        if (valEl) {
+          valEl.dataset.target = k.value;
+          valEl.dataset.suffix = k.suffix || "";
+          animateCount(valEl, k.value, k.suffix || "", true);
+        }
       });
-    });
+    } else {
+      kpiGrid.innerHTML = kpis.map((k, i) => `
+        <div class="kpi-card ${k.pulse ? "pulse" : ""}" style="--card-color:${k.color};--card-grad:${k.grad};--delay:${i * 0.05}s" data-kpi="${i}">
+          <div class="kpi-top">
+            <div class="kpi-icon"><i data-lucide="${k.icon}"></i></div>
+            <span class="kpi-trend up"><i data-lucide="trending-up"></i> Live</span>
+          </div>
+          <div class="kpi-value" data-target="${k.value}" data-suffix="${k.suffix || ""}">${k.value}${k.suffix || ""}</div>
+          <div class="kpi-label">${esc(k.label)}</div>
+          <div class="sparkline-wrap"><canvas id="spark-${i}" height="36"></canvas></div>
+        </div>
+      `).join("");
+      lucide.createIcons({ nodes: [kpiGrid] });
+      requestAnimationFrame(() => {
+        kpis.forEach((k, i) => {
+          const canvas = document.getElementById(`spark-${i}`);
+          if (canvas) drawSparkline(canvas, generateSparkData(k.value, i), k.color);
+        });
+      });
+    }
   }
 
   // --- Pipeline stepper ---
@@ -1646,10 +1660,10 @@ async function renderEvaluations() {
     // only update the progress bar + % text — no innerHTML swap, no blink
     const existingIds = [...list.querySelectorAll("[data-eval-id]")].map(el => el.dataset.evalId);
     const newIds      = evals.map(e => e.id);
-    const canPatch    = anyActive && existingIds.length === newIds.length && newIds.every((id, i) => existingIds[i] === id);
+    const canPatch    = existingIds.length === newIds.length && newIds.every((id, i) => existingIds[i] === id);
 
     if (canPatch) {
-      evals.filter(e => e.status === "running" || e.status === "queued").forEach(ev => {
+      evals.forEach(ev => {
         const pct    = ev.progress ?? 0;
         const progEl = document.getElementById("eprog-" + ev.id);
         const pctEl  = document.getElementById("epct-"  + ev.id);
@@ -1750,46 +1764,41 @@ async function renderRegistry() {
     list.innerHTML = `<div class="item-card"><div class="empty-state"><i data-lucide="library"></i>No registered models yet. Pass an evaluation gate first.</div></div>`;
     lucide.createIcons({ nodes: [list] });
   } else {
-    // Sort descending by version number (e.g. v17 -> v16 -> v2), then by creation time
-    const sorted = entries.slice().sort((a, b) => {
-      const vA = extractVersionNum(a.version);
-      const vB = extractVersionNum(b.version);
-      if (vA !== vB) return vB - vA; // Highest version number at top
-      const tA = a.created_at ? new Date(a.created_at).getTime() : 0;
-      const tB = b.created_at ? new Date(b.created_at).getTime() : 0;
-      if (tA !== tB) return tB - tA;
-      return (b.id || 0) - (a.id || 0);
-    });
+    const existingIds = [...list.querySelectorAll("[data-model-id]")].map(el => el.dataset.modelId);
+    const newIds      = sorted.map(m => String(m.id));
+    const canPatch    = existingIds.length === newIds.length && newIds.every((id, i) => existingIds[i] === id);
 
-    list.innerHTML = sorted.map((m, idx) => {
-      const hash  = m.model_card?.adapter_hash || m.adapter_hash || m.id;
-      const owner = m.model_card?.owner || "unassigned";
-      const isNewest = idx === 0;
-      const rawVer   = m.version || "v16";
-      const vTag     = rawVer.toLowerCase().startsWith("v") ? rawVer : "v" + rawVer;
-      const displayVer = vTag.startsWith("banking-llm-") ? vTag : "banking-llm-" + vTag;
-      return `
-      <div class="model-card${isNewest ? " model-card-recent" : ""}">
-        ${isNewest ? '<div class="recent-banner"><i data-lucide="sparkles"></i> LATEST VERSION (TOP)</div>' : ""}
-        <div class="model-head">
-          <div class="model-icon"><i data-lucide="bot"></i></div>
-          <div><div class="model-name">${esc(displayVer)} <span style="font-size:11px;opacity:0.75;font-weight:400">(${esc(vTag)})</span></div>
-          <div class="model-hash">${esc(String(hash).slice(0, 16))}… <button class="copy-btn" onclick="copyText('${esc(hash)}')" title="Copy hash"><i data-lucide="copy"></i></button></div></div>
-        </div>
-        <div class="model-badges">
-          <span class="badge ${m.status === "promoted" ? "ok" : "neutral"}">${esc((m.status || "registered").toUpperCase())}</span>
-          <span class="badge blue">EVAL PASSED</span>
-        </div>
-        <div class="model-row"><i data-lucide="user"></i> Owner: <b>${esc(owner)}</b></div>
-        <div class="model-row"><i data-lucide="git-commit-horizontal"></i> Run: <b>${esc(m.run_id)}</b></div>
-        <div class="model-row"><i data-lucide="calendar"></i> Expiry: <b>${esc(m.model_card?.expiry_date || "—")}</b></div>
-        <div class="item-actions" style="margin-top:10px;gap:8px">
-          ${m.status !== "promoted" ? `<button onclick="promoteModel('${m.id}')"><i data-lucide="rocket"></i> Promote &amp; Deploy</button>` : ""}
-          <button class="btn-secondary" onclick="downloadModelCard('${m.id}')" title="Download signed model card JSON"><i data-lucide="download"></i> Export Card</button>
-        </div>
-      </div>`;
-    }).join("");
-    lucide.createIcons({ nodes: [list] });
+    if (!canPatch) {
+      list.innerHTML = sorted.map((m, idx) => {
+        const hash  = m.model_card?.adapter_hash || m.adapter_hash || m.id;
+        const owner = m.model_card?.owner || "unassigned";
+        const isNewest = idx === 0;
+        const rawVer   = m.version || "v16";
+        const vTag     = rawVer.toLowerCase().startsWith("v") ? rawVer : "v" + rawVer;
+        const displayVer = vTag.startsWith("banking-llm-") ? vTag : "banking-llm-" + vTag;
+        return `
+        <div class="model-card${isNewest ? " model-card-recent" : ""}" data-model-id="${m.id}">
+          ${isNewest ? '<div class="recent-banner"><i data-lucide="sparkles"></i> LATEST VERSION (TOP)</div>' : ""}
+          <div class="model-head">
+            <div class="model-icon"><i data-lucide="bot"></i></div>
+            <div><div class="model-name">${esc(displayVer)} <span style="font-size:11px;opacity:0.75;font-weight:400">(${esc(vTag)})</span></div>
+            <div class="model-hash">${esc(String(hash).slice(0, 16))}… <button class="copy-btn" onclick="copyText('${esc(hash)}')" title="Copy hash"><i data-lucide="copy"></i></button></div></div>
+          </div>
+          <div class="model-badges">
+            <span class="badge ${m.status === "promoted" ? "ok" : "neutral"}">${esc((m.status || "registered").toUpperCase())}</span>
+            <span class="badge blue">EVAL PASSED</span>
+          </div>
+          <div class="model-row"><i data-lucide="user"></i> Owner: <b>${esc(owner)}</b></div>
+          <div class="model-row"><i data-lucide="git-commit-horizontal"></i> Run: <b>${esc(m.run_id)}</b></div>
+          <div class="model-row"><i data-lucide="calendar"></i> Expiry: <b>${esc(m.model_card?.expiry_date || "—")}</b></div>
+          <div class="item-actions" style="margin-top:10px;gap:8px">
+            ${m.status !== "promoted" ? `<button onclick="promoteModel('${m.id}')"><i data-lucide="rocket"></i> Promote &amp; Deploy</button>` : ""}
+            <button class="btn-secondary" onclick="downloadModelCard('${m.id}')" title="Download signed model card JSON"><i data-lucide="download"></i> Export Card</button>
+          </div>
+        </div>`;
+      }).join("");
+      lucide.createIcons({ nodes: [list] });
+    }
   }
 
   // Populate deploy-registry-select
