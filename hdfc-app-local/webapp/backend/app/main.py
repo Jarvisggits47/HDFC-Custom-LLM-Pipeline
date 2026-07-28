@@ -65,20 +65,18 @@ def on_startup():
         raw_conn = engine.raw_connection()
         raw_conn.autocommit = True
         cursor = raw_conn.cursor()
-        try:
-            cursor.execute("ALTER TABLE employees ADD COLUMN IF NOT EXISTS password VARCHAR DEFAULT 'Hdfc@2026';")
-        except Exception:
-            try:
-                cursor.execute("ALTER TABLE employees ADD COLUMN password VARCHAR DEFAULT 'Hdfc@2026';")
-            except Exception:
-                pass
-        try:
-            cursor.execute("ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS content_hash VARCHAR;")
-        except Exception:
-            try:
-                cursor.execute("ALTER TABLE document_chunks ADD COLUMN content_hash VARCHAR;")
-            except Exception:
-                pass
+        for sql in [
+            "ALTER TABLE employees ADD COLUMN IF NOT EXISTS password VARCHAR DEFAULT 'Hdfc@2026';",
+            "ALTER TABLE employees ADD COLUMN password VARCHAR DEFAULT 'Hdfc@2026';",
+            "ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS content_hash VARCHAR;",
+            "ALTER TABLE document_chunks ADD COLUMN content_hash VARCHAR;",
+            "ALTER TABLE datasets ADD COLUMN IF NOT EXISTS assistant_name VARCHAR;",
+            "ALTER TABLE datasets ADD COLUMN assistant_name VARCHAR;",
+            "ALTER TABLE model_registry ADD COLUMN IF NOT EXISTS assistant_name VARCHAR;",
+            "ALTER TABLE model_registry ADD COLUMN assistant_name VARCHAR;"
+        ]:
+            try: cursor.execute(sql)
+            except Exception: pass
         cursor.close()
         raw_conn.close()
     except Exception as e:

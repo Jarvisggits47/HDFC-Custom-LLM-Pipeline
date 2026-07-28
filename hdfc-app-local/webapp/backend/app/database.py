@@ -20,6 +20,8 @@ try:
         for tbl_sql in [
             "ALTER TABLE employees ADD COLUMN password VARCHAR DEFAULT 'Hdfc@2026';",
             "ALTER TABLE document_chunks ADD COLUMN content_hash VARCHAR;",
+            "ALTER TABLE datasets ADD COLUMN assistant_name VARCHAR;",
+            "ALTER TABLE model_registry ADD COLUMN assistant_name VARCHAR;",
             "ALTER TABLE datasets ADD COLUMN owner_employee_id VARCHAR DEFAULT 'HDFC-AI-101';",
             "ALTER TABLE document_chunks ADD COLUMN owner_employee_id VARCHAR DEFAULT 'HDFC-AI-101';",
             "ALTER TABLE runs ADD COLUMN owner_employee_id VARCHAR DEFAULT 'HDFC-AI-101';",
@@ -28,7 +30,8 @@ try:
             "ALTER TABLE deployments ADD COLUMN owner_employee_id VARCHAR DEFAULT 'HDFC-AI-101';",
             "ALTER TABLE inference_log ADD COLUMN owner_employee_id VARCHAR DEFAULT 'HDFC-AI-101';",
             "CREATE TABLE IF NOT EXISTS temp_passcodes (id VARCHAR PRIMARY KEY, employee_id VARCHAR NOT NULL, passcode VARCHAR NOT NULL, status VARCHAR DEFAULT 'active', is_used BOOLEAN DEFAULT FALSE, expires_at TIMESTAMP NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);",
-            "CREATE TABLE IF NOT EXISTS user_sessions (id VARCHAR PRIMARY KEY, session_token VARCHAR UNIQUE NOT NULL, employee_id VARCHAR NOT NULL, login_type VARCHAR DEFAULT 'master', device_info VARCHAR DEFAULT 'Web Client', ip_address VARCHAR DEFAULT '127.0.0.1', status VARCHAR DEFAULT 'active', expires_at TIMESTAMP NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
+            "CREATE TABLE IF NOT EXISTS user_sessions (id VARCHAR PRIMARY KEY, session_token VARCHAR UNIQUE NOT NULL, employee_id VARCHAR NOT NULL, login_type VARCHAR DEFAULT 'master', device_info VARCHAR DEFAULT 'Web Client', ip_address VARCHAR DEFAULT '127.0.0.1', status VARCHAR DEFAULT 'active', expires_at TIMESTAMP NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);",
+            "CREATE TABLE IF NOT EXISTS user_chat_messages (id VARCHAR PRIMARY KEY, user_id VARCHAR NOT NULL, assistant_id VARCHAR, session_id VARCHAR NOT NULL, role VARCHAR NOT NULL, content TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
         ]:
             try:
                 conn.execute(_mig_text(tbl_sql))
