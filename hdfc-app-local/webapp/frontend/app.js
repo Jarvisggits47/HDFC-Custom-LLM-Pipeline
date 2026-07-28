@@ -2080,7 +2080,21 @@ function getChatKey() {
 let currentConvId = null;
 
 function loadConversations() {
-  try { return JSON.parse(localStorage.getItem(getChatKey()) || "[]"); }
+  const key = getChatKey();
+  let data = localStorage.getItem(key);
+
+  // Automatic legacy migration: If current user key is empty but old hdfc_conversations exists, migrate old chats!
+  if (!data) {
+    const oldData = localStorage.getItem("hdfc_conversations");
+    if (oldData) {
+      try {
+        localStorage.setItem(key, oldData);
+        data = oldData;
+      } catch (_) { }
+    }
+  }
+
+  try { return JSON.parse(data || "[]"); }
   catch { return []; }
 }
 function saveConversations(convs) {
