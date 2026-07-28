@@ -2073,18 +2073,23 @@ async function renderDeployments() {
 
 function getChatKey() {
   const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
-  const userId = u.empId || u.name || "default";
+  const isCustomer = u.account_role === "user" || u.role === "user";
+  const userId = isCustomer
+    ? (u.empId || u.email || u.name || "customer_guest")
+    : (u.empId || "HDFC-AI-101");
   return `hdfc_conversations_${userId}`;
 }
 
 let currentConvId = null;
 
 function loadConversations() {
+  const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
+  const isCustomer = u.account_role === "user" || u.role === "user";
   const key = getChatKey();
   let data = localStorage.getItem(key);
 
-  // Automatic legacy migration: If current user key is empty but old hdfc_conversations exists, migrate old chats!
-  if (!data) {
+  // Migration: Only migrate legacy hdfc_conversations for Admin / Employee accounts!
+  if (!data && !isCustomer) {
     const oldData = localStorage.getItem("hdfc_conversations");
     if (oldData) {
       try {
@@ -2092,6 +2097,14 @@ function loadConversations() {
         data = oldData;
       } catch (_) { }
     }
+  }
+
+  // Cleanup: If a customer key was previously polluted with admin chats, clear it out!
+  if (isCustomer && data && data.includes("my debit card go")) {
+    try {
+      localStorage.removeItem(key);
+      data = null;
+    } catch (_) { }
   }
 
   try { return JSON.parse(data || "[]"); }
