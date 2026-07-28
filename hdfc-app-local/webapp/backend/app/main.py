@@ -758,6 +758,30 @@ def login_temp_passcode(request: Request, payload: schemas.TempLoginRequest, db:
     return out
 
 
+@app.get("/api/auth/latest-temp-passcode")
+def get_latest_temp_passcode(request: Request, db: Session = Depends(get_db)):
+    emp_id = get_emp_id_from_req(request, db)
+    tp = db.query(models.TempPasscode).filter(
+        models.TempPasscode.employee_id == emp_id
+    ).order_by(models.TempPasscode.created_at.desc()).first()
+
+    if not tp:
+        return {"has_passcode": False}
+
+    is_expired = tp.expires_at <= datetime.utcnow()
+    status = "expired" if is_expired else ("used" if tp.is_used else tp.status)
+    remaining_sec = max(0, int((tp.expires_at - datetime.utcnow()).total_seconds())) if (not is_expired and status == "active") else 0
+
+    return {
+        "has_passcode": True,
+        "passcode": tp.passcode,
+        "status": status,
+        "is_used": tp.is_used,
+        "expires_in_seconds": remaining_sec,
+        "created_at": tp.created_at.isoformat()
+    }
+
+
 @app.get("/api/auth/active-sessions", response_model=list[schemas.UserSessionOut])
 def list_active_sessions(request: Request, db: Session = Depends(get_db)):
     emp_id = get_emp_id_from_req(request, db)

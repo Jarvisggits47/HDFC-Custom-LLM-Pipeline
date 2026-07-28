@@ -415,13 +415,16 @@ function openPasswordModal(tab = 'update') {
   lucide.createIcons({ nodes: [modal] });
 }
 
+let _tempCountdownTimer = null;
+let _passcodeAutoRefreshTimer = null;
+
 function closePasswordModal() {
   const modal = document.getElementById("password-modal");
   if (modal) modal.style.display = "none";
-}
-
-function openForgotPasswordModal() {
-  openPasswordModal('forgot');
+  if (_passcodeAutoRefreshTimer) {
+    clearInterval(_passcodeAutoRefreshTimer);
+    _passcodeAutoRefreshTimer = null;
+  }
 }
 
 function switchPasswordTab(tab) {
@@ -435,6 +438,11 @@ function switchPasswordTab(tab) {
   [updateBtn, forgotBtn, tempBtn].forEach(b => b?.classList.remove("active"));
   [updatePanel, forgotPanel, tempPanel].forEach(p => { if (p) p.style.display = "none"; });
 
+  if (_passcodeAutoRefreshTimer) {
+    clearInterval(_passcodeAutoRefreshTimer);
+    _passcodeAutoRefreshTimer = null;
+  }
+
   if (tab === 'forgot') {
     forgotBtn?.classList.add("active");
     if (forgotPanel) forgotPanel.style.display = "block";
@@ -442,31 +450,61 @@ function switchPasswordTab(tab) {
     tempBtn?.classList.add("active");
     if (tempPanel) tempPanel.style.display = "block";
     loadActiveSessions();
+    _passcodeAutoRefreshTimer = setInterval(loadActiveSessions, 3500);
   } else {
     updateBtn?.classList.add("active");
     if (updatePanel) updatePanel.style.display = "block";
   }
 }
 
-let _tempCountdownTimer = null;
-async function generateTempPasscode() {
-  try {
-    const res = await api("/auth/generate-temp-passcode", { method: "POST" });
-    const codeDisplay = document.getElementById("temp-code-display");
-    const codeVal     = document.getElementById("temp-passcode-val");
-    const codeTimer   = document.getElementById("temp-timer");
+async function checkLatestTempPasscode() {
+  const codeDisplay = document.getElementById("temp-code-display");
+  const codeVal     = document.getElementById("temp-passcode-val");
+  const codeTimer   = document.getElementById("temp-timer");
+  const subText     = document.getElementById("temp-status-subtext");
+  if (!codeDisplay || !codeVal) return;
 
-    if (codeDisplay && codeVal) {
-      codeDisplay.style.display = "block";
-      codeVal.textContent = res.passcode;
-      
-      let remainingSec = 15 * 60;
+  try {
+    const res = await api("/auth/latest-temp-passcode");
+    if (!res.has_passcode) {
+      codeDisplay.style.display = "none";
+      return;
+    }
+
+    codeDisplay.style.display = "block";
+    codeVal.textContent = res.passcode;
+
+    if (res.status === "used") {
+      if (_tempCountdownTimer) clearInterval(_tempCountdownTimer);
+      if (codeTimer) codeTimer.innerHTML = `<span style="color:var(--accent);font-weight:800"><i data-lucide="check-circle" style="width:12px;height:12px;vertical-align:-1px"></i> USED &amp; CONSUMED</span>`;
+      if (subText) {
+        subText.style.display = "block";
+        subText.innerHTML = "This passcode was consumed to log in on another device. Click below to generate a new passcode.";
+      }
+      lucide.createIcons({ nodes: [codeTimer] });
+    } else if (res.status === "revoked") {
+      if (_tempCountdownTimer) clearInterval(_tempCountdownTimer);
+      if (codeTimer) codeTimer.innerHTML = `<span style="color:var(--warn);font-weight:800">REVOKED (NEW CODE GENERATED)</span>`;
+      if (subText) {
+        subText.style.display = "block";
+        subText.innerHTML = "This passcode was revoked because a new passcode was generated.";
+      }
+    } else if (res.status === "expired") {
+      if (_tempCountdownTimer) clearInterval(_tempCountdownTimer);
+      if (codeTimer) codeTimer.innerHTML = `<span style="color:var(--accent);font-weight:800">EXPIRED</span>`;
+      if (subText) {
+        subText.style.display = "block";
+        subText.innerHTML = "This passcode has expired (15-min limit reached). Click below to generate a new passcode.";
+      }
+    } else if (res.status === "active") {
+      if (subText) subText.style.display = "none";
+      let remainingSec = res.expires_in_seconds;
       if (_tempCountdownTimer) clearInterval(_tempCountdownTimer);
       _tempCountdownTimer = setInterval(() => {
         remainingSec--;
         if (remainingSec <= 0) {
           clearInterval(_tempCountdownTimer);
-          if (codeTimer) codeTimer.textContent = "Expired";
+          if (codeTimer) codeTimer.innerHTML = `<span style="color:var(--accent);font-weight:800">EXPIRED</span>`;
         } else {
           const m = Math.floor(remainingSec / 60);
           const s = remainingSec % 60;
@@ -474,7 +512,12 @@ async function generateTempPasscode() {
         }
       }, 1000);
     }
+  } catch (err) {}
+}
 
+async function generateTempPasscode() {
+  try {
+    const res = await api("/auth/generate-temp-passcode", { method: "POST" });
     showToast(`🔑 Fresh Temp Passcode generated: ${res.passcode} (Valid for 15 mins)`, "ok");
     loadActiveSessions();
   } catch (err) {
@@ -483,6 +526,7 @@ async function generateTempPasscode() {
 }
 
 async function loadActiveSessions() {
+  await checkLatestTempPasscode();
   const el = document.getElementById("active-sessions-list");
   const termEl = document.getElementById("terminated-sessions-list");
   if (!el) return;
