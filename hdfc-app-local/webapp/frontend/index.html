@@ -313,43 +313,60 @@
 
             <div class="card form-card">
               <div class="card-title"><i data-lucide="upload-cloud"></i> Upload Documents</div>
-              <div class="field-group">
-                <label class="field-label">Target Dataset</label>
-                <select id="upload-dataset-select"></select>
-              </div>
+              <div class="grid-2" style="grid-template-columns: 1.2fr 0.8fr; gap: 20px; align-items: start;">
+                <!-- LEFT COLUMN: INPUTS -->
+                <div>
+                  <div class="field-group">
+                    <label class="field-label">Target Dataset</label>
+                    <select id="upload-dataset-select"></select>
+                  </div>
 
-              <label class="dropzone" id="dropzone" for="pdf-file-input">
-                <i data-lucide="file-up"></i>
-                <div class="dropzone-text">Drop a <b>PDF or DOCX</b> here, or click to browse</div>
-                <input type="file" id="pdf-file-input" accept=".pdf,.docx" hidden>
-                <span class="dropzone-file" id="dropzone-file"></span>
-              </label>
-              <div class="actions-row">
-                <button type="button" id="upload-pdf-btn" class="btn-secondary">
-                  <i data-lucide="file-up"></i> Upload File
-                </button>
-              </div>
+                  <label class="dropzone" id="dropzone" for="pdf-file-input">
+                    <i data-lucide="file-up"></i>
+                    <div class="dropzone-text">Drop a <b>PDF or DOCX</b> here, or click to browse</div>
+                    <input type="file" id="pdf-file-input" accept=".pdf,.docx" hidden>
+                    <span class="dropzone-file" id="dropzone-file"></span>
+                  </label>
+                  <div class="actions-row">
+                    <button type="button" id="upload-pdf-btn" class="btn-secondary">
+                      <i data-lucide="file-up"></i> Upload File
+                    </button>
+                  </div>
 
-              <div class="divider-label">— or paste policy text directly —</div>
-              <div class="grid-2">
-                <div class="field-group">
-                  <label class="field-label">Document Name</label>
-                  <input id="paste-filename" placeholder="e.g. loan_policy_2026.txt">
+                  <div class="divider-label">— or paste policy text directly —</div>
+                  <div class="grid-2">
+                    <div class="field-group">
+                      <label class="field-label">Document Name</label>
+                      <input id="paste-filename" placeholder="e.g. loan_policy_2026.txt">
+                    </div>
+                    <div class="field-group actions-end">
+                      <button type="button" id="upload-text-btn" class="btn-secondary" style="width:100%">
+                        <i data-lucide="file-plus"></i> Add Document
+                      </button>
+                    </div>
+                  </div>
+                  <div class="field-group">
+                    <label class="field-label">Paste Text</label>
+                    <textarea id="paste-text" rows="3" placeholder="Paste raw policy text. It will be chunked and scanned for PII before storage."></textarea>
+                  </div>
                 </div>
-                <div class="field-group actions-end">
-                  <button type="button" id="upload-text-btn" class="btn-secondary" style="width:100%">
-                    <i data-lucide="file-plus"></i> Add Document
-                  </button>
+
+                <!-- RIGHT COLUMN: LIVE PROCESSING PIPELINE STATUS CARD -->
+                <div style="background:var(--bg-card-sub);border:1px solid var(--border-light);border-radius:8px;padding:16px;min-height:280px;display:flex;flex-direction:column;justify-content:space-between">
+                  <div>
+                    <div style="font-size:13px;font-weight:700;color:var(--text-main);display:flex;align-items:center;gap:6px;margin-bottom:12px">
+                      <i data-lucide="cpu" style="width:15px;height:15px;color:var(--blue)"></i> Document Pipeline Engine
+                    </div>
+                    <div id="process-stepper-container">
+                      <div id="process-stepper-empty" style="font-size:12px;color:var(--text-muted);line-height:1.5;padding:12px 0">
+                        <i data-lucide="info" style="width:14px;height:14px;vertical-align:-2px;margin-right:4px;color:var(--blue)"></i> Ready to ingest policy documents. Upload a PDF or paste text on the left to trigger the automatic chunking and PII scanning pipeline.
+                      </div>
+                      <div id="process-stepper" class="process-stepper" style="display:none;flex-direction:column;gap:8px"></div>
+                    </div>
+                  </div>
+                  <div id="upload-result" class="upload-result" style="margin-top:12px"></div>
                 </div>
               </div>
-              <div class="field-group">
-                <label class="field-label">Paste Text</label>
-                <textarea id="paste-text" rows="3" placeholder="Paste raw policy text. It will be chunked and scanned for PII before storage."></textarea>
-              </div>
-
-              <!-- Inline processing stepper -->
-              <div id="process-stepper" class="process-stepper" style="display:none"></div>
-              <div id="upload-result" class="upload-result"></div>
             </div>
           </div>
 

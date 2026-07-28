@@ -1211,6 +1211,127 @@ document.getElementById("dataset-form").addEventListener("submit", async e => {
   } catch (err) { showToast(err.message, "bad"); }
 });
 
+// Inline processing stepper animation
+const PROCESS_STAGES = [
+  { label: "1. Uploading Document Stream", icon: "upload" },
+  { label: "2. Extracting Text & Pages", icon: "file-text" },
+  { label: "3. PII Detection & Redaction", icon: "shield-check" },
+  { label: "4. Slicing 500-char Overlapping Chunks", icon: "layers" },
+  { label: "5. In-Memory Vector Indexing & DB Save", icon: "database" }
+];
+let _procTimer = null;
+
+function runProcessStepper() {
+  const el = document.getElementById("process-stepper");
+  const emptyEl = document.getElementById("process-stepper-empty");
+  if (!el) return;
+  if (emptyEl) emptyEl.style.display = "none";
+  clearInterval(_procTimer);
+  el.style.display = "flex";
+  let cur = 0;
+
+  const render = () => {
+    el.innerHTML = PROCESS_STAGES.map((s, i) => {
+      const st = i < cur ? "done" : i === cur ? "active" : "";
+      const icon = i < cur ? '<i data-lucide="check" style="width:12px;height:12px"></i>' : (i === cur ? '<span class="spinner" style="width:12px;height:12px"></span>' : `${i+1}`);
+      return `
+        <div class="pstep ${st}" style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;background:${i <= cur ? 'rgba(59,130,246,0.1)' : 'var(--bg-main)'};border:1px solid ${i === cur ? 'var(--blue)' : 'var(--border-light)'}">
+          <span class="pstep-dot" style="width:20px;height:20px;border-radius:50%;background:${i < cur ? 'var(--ok)' : i === cur ? 'var(--blue)' : 'var(--border)'};color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700">${icon}</span>
+          <span class="pstep-label" style="font-size:11.5px;font-weight:${i <= cur ? '600' : '400'};color:${i <= cur ? 'var(--text-main)' : 'var(--text-muted)'}">${esc(s.label)}</span>
+        </div>
+      `;
+    }).join("");
+    lucide.createIcons({ nodes: [el] });
+  };
+
+  render();
+  _procTimer = setInterval(() => {
+    if (cur < PROCESS_STAGES.length - 1) {
+      cur++;
+      render();
+    }
+  }, 450);
+}
+
+function finishProcessStepper() {
+  clearInterval(_procTimer);
+  const el = document.getElementById("process-stepper");
+  if (!el) return;
+  el.innerHTML = PROCESS_STAGES.map(s => `
+    <div class="pstep done" style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.3)">
+      <span class="pstep-dot" style="width:20px;height:20px;border-radius:50%;background:var(--ok);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700"><i data-lucide="check" style="width:12px;height:12px"></i></span>
+      <span class="pstep-label" style="font-size:11.5px;font-weight:600;color:var(--text-main)">${esc(s.label)}</span>
+    </div>
+  `).join("");
+  lucide.createIcons({ nodes: [el] });
+}
+
+// PDF Upload
+document.getElementById("upload-pdf-btn").addEventListener("click", async () => {
+  const dsId      = document.getElementById("upload-dataset-select").value;
+  const fileInput = document.getElementById("pdf-file-input");
+  const resultBox = document.getElementById("upload-result");
+  if (!dsId)                    return showToast("Select a dataset first.", "warn");
+  if (!fileInput.files.length)  return showToast("Choose a PDF or DOCX file first.", "warn");
+  const fd = new FormData();
+  fd.append("file", fileInput.files[0]);
+  resultBox.textContent = "";
+  runProcessStepper();
+  try {
+    const res = await fetch(`${API}/datasets/${dsId}/upload-pdf`, { method: "POST", body: fd });
+    if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.detail || res.statusText); }
+    const data = await res.json();
+    finishProcessStepper();
+    const dupNote = data.duplicate_chunks_skipped ? ` · ${data.duplicate_chunks_skipped} duplicate chunks skipped` : "";
+    const piiNote = data.pii_redacted ? " (PII found and redacted)" : "";
+    resultBox.innerHTML = `<div style="padding:10px;border-radius:6px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.3);font-size:11.5px;color:var(--ok);font-weight:600"><i data-lucide="check-circle-2" style="width:14px;height:14px;vertical-align:-2px;margin-right:4px"></i> Indexed ${safe(data.filename, "file")}: ${data.chunks_created ?? 0} chunks created${dupNote}${piiNote}.</div>`;
+    lucide.createIcons({ nodes: [resultBox] });
+    fileInput.value = "";
+    document.getElementById("dropzone-file").textContent = "";
+    showToast(`${data.chunks_created ?? 0} chunks indexed.`, "ok");
+    refreshAll();
+  } catch (err) {
+    clearInterval(_procTimer);
+    document.getElementById("process-stepper").style.display = "none";
+    resultBox.innerHTML = `<div style="padding:8px 10px;border-radius:6px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);font-size:11.5px;color:var(--accent)"><i data-lucide="x-circle" style="width:13px;height:13px;vertical-align:-1px"></i> Upload failed: ${esc(err.message)}</div>`;
+    lucide.createIcons({ nodes: [resultBox] });
+    showToast(err.message, "bad");
+  }
+});
+
+// Text Upload (backend expects Form, not JSON)
+document.getElementById("upload-text-btn").addEventListener("click", async () => {
+  const dsId     = document.getElementById("upload-dataset-select").value;
+  const filename = document.getElementById("paste-filename").value || "pasted-document.txt";
+  const text     = document.getElementById("paste-text").value;
+  const resultBox = document.getElementById("upload-result");
+  if (!dsId)        return showToast("Select a dataset first.", "warn");
+  if (!text.trim()) return showToast("Paste some text first.", "warn");
+  const fd = new FormData();
+  fd.append("filename", filename);
+  fd.append("text", text);
+  resultBox.textContent = "";
+  runProcessStepper();
+  try {
+    const res = await fetch(`${API}/datasets/${dsId}/upload-text`, { method: "POST", body: fd });
+    if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.detail || res.statusText); }
+    const data = await res.json();
+    finishProcessStepper();
+    const piiNote = data.pii_redacted ? " (PII found and redacted)" : "";
+    resultBox.innerHTML = `<div style="padding:10px;border-radius:6px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.3);font-size:11.5px;color:var(--ok);font-weight:600"><i data-lucide="check-circle-2" style="width:14px;height:14px;vertical-align:-2px;margin-right:4px"></i> Indexed ${safe(data.filename, filename)}: ${data.chunks_created ?? 0} chunks created${piiNote}.</div>`;
+    lucide.createIcons({ nodes: [resultBox] });
+    document.getElementById("paste-text").value = "";
+    showToast(`${data.chunks_created ?? 0} chunks indexed.`, "ok");
+    refreshAll();
+  } catch (err) {
+    clearInterval(_procTimer);
+    document.getElementById("process-stepper").style.display = "none";
+    resultBox.innerHTML = `<div style="padding:8px 10px;border-radius:6px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);font-size:11.5px;color:var(--accent)"><i data-lucide="x-circle" style="width:13px;height:13px;vertical-align:-1px"></i> Upload failed: ${esc(err.message)}</div>`;
+    lucide.createIcons({ nodes: [resultBox] });
+    showToast(err.message, "bad");
+  }
+});
+
 async function approveDataset(dsId) {
   try {
     await api(`/datasets/${dsId}/approve`, { method: "POST" });
@@ -1337,18 +1458,13 @@ async function renderDatasets() {
     }
   }
 
-  // Populate upload select (unapproved)
-  const uploadSel = document.getElementById("upload-dataset-select");
-  const unapproved = datasets.filter(d => d.status !== "approved");
-  uploadSel.innerHTML = unapproved.length
-    ? unapproved.map(d => `<option value="${d.id}">${esc(d.name)}</option>`).join("")
-    : `<option value="">Register a dataset first</option>`;
-
-  // Populate run dataset select (approved only)
-  const runSel = document.getElementById("run-dataset-select");
-  runSel.innerHTML = approved.length
-    ? approved.map(d => `<option value="${d.id}">${esc(d.name)} (${d.record_count ?? 0} records, ${d.chunk_count ?? 0} chunks)</option>`).join("")
-    : `<option value="">No approved datasets — approve one first</option>`;
+  // Populate upload dataset select
+  const sel = document.getElementById("upload-dataset-select");
+  if (sel) {
+    sel.innerHTML = datasets.length
+      ? datasets.map(d => `<option value="${d.id}">${esc(d.name)} (${d.record_count ?? 0} records, ${d.chunk_count ?? 0} chunks)</option>`).join("")
+      : `<option value="">No datasets created — register one above</option>`;
+  }
 }
 
 // Dropzone
@@ -1368,164 +1484,25 @@ if (dropzone && pdfInput) {
   });
 }
 
-// Inline processing stepper animation
-const PROCESS_STAGES = ["Uploading", "Extracting", "Cleaning", "Chunking", "PII Detection", "Embedding", "Saved"];
-let _procTimer = null;
-function runProcessStepper() {
-  const el = document.getElementById("process-stepper");
-  if (!el) return;
-  clearInterval(_procTimer);
-  el.style.display = "flex";
-  let cur = 0;
-  const render = () => {
-    el.innerHTML = PROCESS_STAGES.map((s, i) => {
-      const st = i < cur ? "done" : i === cur ? "active" : "";
-      return `<div class="pstep ${st}"><span class="pstep-dot">${i < cur ? '<i data-lucide="check"></i>' : ""}</span><span class="pstep-label">${s}</span></div>`;
-    }).join("");
-    lucide.createIcons({ nodes: [el] });
-  };
-  render();
-  _procTimer = setInterval(() => {
-    cur++;
-    if (cur >= PROCESS_STAGES.length) { clearInterval(_procTimer); cur = PROCESS_STAGES.length; }
-    render();
-  }, 400);
-}
-function finishProcessStepper() {
-  clearInterval(_procTimer);
-  const el = document.getElementById("process-stepper");
-  if (el) { el.innerHTML = PROCESS_STAGES.map(s => `<div class="pstep done"><span class="pstep-dot"><i data-lucide="check"></i></span><span class="pstep-label">${s}</span></div>`).join(""); lucide.createIcons({ nodes: [el] }); setTimeout(() => { el.style.display = "none"; }, 1500); }
-}
-
-// PDF Upload
-document.getElementById("upload-pdf-btn").addEventListener("click", async () => {
-  const dsId      = document.getElementById("upload-dataset-select").value;
-  const fileInput = document.getElementById("pdf-file-input");
-  const resultBox = document.getElementById("upload-result");
-  if (!dsId)                    return showToast("Select a dataset first.", "warn");
-  if (!fileInput.files.length)  return showToast("Choose a PDF or DOCX file first.", "warn");
-  const fd = new FormData();
-  fd.append("file", fileInput.files[0]);
-  resultBox.textContent = "";
-  runProcessStepper();
-  try {
-    const res = await fetch(`${API}/datasets/${dsId}/upload-pdf`, { method: "POST", body: fd });
-    if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.detail || res.statusText); }
-    const data = await res.json();
-    finishProcessStepper();
-    const dupNote = data.duplicate_chunks_skipped ? ` · ${data.duplicate_chunks_skipped} duplicate chunks skipped` : "";
-    const piiNote = data.pii_redacted ? " (PII found and redacted)" : "";
-    resultBox.textContent = `Indexed ${safe(data.filename, "file")}: ${data.chunks_created ?? 0} chunks created${dupNote}${piiNote}.`;
-    fileInput.value = "";
-    document.getElementById("dropzone-file").textContent = "";
-    showToast(`${data.chunks_created ?? 0} chunks indexed.`, "ok");
-    refreshAll();
-  } catch (err) {
-    clearInterval(_procTimer);
-    document.getElementById("process-stepper").style.display = "none";
-    resultBox.textContent = "Upload failed: " + err.message;
-    showToast(err.message, "bad");
-  }
-});
-
-// Text Upload (backend expects Form, not JSON)
-document.getElementById("upload-text-btn").addEventListener("click", async () => {
-  const dsId     = document.getElementById("upload-dataset-select").value;
-  const filename = document.getElementById("paste-filename").value || "pasted-document.txt";
-  const text     = document.getElementById("paste-text").value;
-  const resultBox = document.getElementById("upload-result");
-  if (!dsId)        return showToast("Select a dataset first.", "warn");
-  if (!text.trim()) return showToast("Paste some text first.", "warn");
-  const fd = new FormData();
-  fd.append("filename", filename);
-  fd.append("text", text);
-  resultBox.textContent = "";
-  runProcessStepper();
-  try {
-    const res = await fetch(`${API}/datasets/${dsId}/upload-text`, { method: "POST", body: fd });
-    if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.detail || res.statusText); }
-    const data = await res.json();
-    finishProcessStepper();
-    const piiNote = data.pii_redacted ? " (PII found and redacted)" : "";
-    resultBox.textContent = `Indexed ${safe(data.filename, filename)}: ${data.chunks_created ?? 0} chunks created${piiNote}.`;
-    document.getElementById("paste-text").value = "";
-    showToast(`${data.chunks_created ?? 0} chunks indexed.`, "ok");
-    refreshAll();
-  } catch (err) {
-    clearInterval(_procTimer);
-    document.getElementById("process-stepper").style.display = "none";
-    resultBox.textContent = "Upload failed: " + err.message;
-    showToast(err.message, "bad");
-  }
-});
-
 // ===================================================
-// RUNS (AI FACTORY)
+// ADAPTER BUILDS (RUNS)
 // ===================================================
 
-const BUILD_STAGES = [
-  { key:"Preparing Dataset",   icon:"database" },
-  { key:"Loading Chunks",      icon:"layers" },
-  { key:"Creating System Prompt", icon:"file-text" },
-  { key:"Generating Adapter",  icon:"cpu" },
-  { key:"Building Index",      icon:"search" },
-  { key:"Packaging",           icon:"package" },
-  { key:"Saving",              icon:"save" }
-];
-
-function renderBuildPipeline(runs) {
-  const el = document.getElementById("build-pipeline");
-  if (!el) return;
-  const active = runs.find(r => r.status === "building" || r.status === "queued");
-  const latest = active || runs.filter(r => r.status === "completed").slice(-1)[0] || null;
-
-  let activeIdx = -1, allDone = false;
-  if (latest) {
-    if (latest.status === "completed") { allDone = true; activeIdx = BUILD_STAGES.length; }
-    else {
-      const prog = latest.progress ?? 0;
-      activeIdx = Math.min(BUILD_STAGES.length - 1, Math.floor((prog / 100) * BUILD_STAGES.length));
-    }
-  }
-
-  const nodes = BUILD_STAGES.map((s, i) => {
-    const st = allDone || i < activeIdx ? "done" : i === activeIdx ? "active" : "";
-    const inner = st === "done" ? '<i data-lucide="check"></i>'
-      : st === "active" ? '<span class="spin-ring"></span>'
-      : `<i data-lucide="${s.icon}"></i>`;
-    const sub = st === "done" ? "Completed" : st === "active" ? "Running…" : "Pending";
-    return `<div class="vnode ${st}">
-      <div class="vnode-circle">${inner}</div>
-      <div class="vnode-body"><div class="vnode-title">${s.key}</div><div class="vnode-sub">${sub}</div></div>
-    </div>`;
-  }).join("");
-
-  const finalSt = allDone ? "done" : "";
-  const finalNode = `<div class="vnode ${finalSt}">
-    <div class="vnode-circle">${allDone ? '<i data-lucide="check-check"></i>' : '<i data-lucide="flag"></i>'}</div>
-    <div class="vnode-body"><div class="vnode-title">Completed</div><div class="vnode-sub">${allDone ? "Adapter ready" : latest ? "In progress" : "Awaiting build"}</div></div>
-  </div>`;
-
-  el.innerHTML = nodes + finalNode;
-  lucide.createIcons({ nodes: [el] });
-}
-
-document.getElementById("run-form").addEventListener("submit", async e => {
+document.getElementById("run-form")?.addEventListener("submit", async e => {
   e.preventDefault();
   const form = new FormData(e.target);
-  const datasetId = form.get("dataset_id");
-  if (!datasetId) return showToast("Approve a dataset first.", "warn");
+  const dsId = form.get("dataset_id");
+  if (!dsId) return showToast("Select an approved dataset.", "warn");
   try {
     await api("/runs", {
       method: "POST",
       body: JSON.stringify({
-        name:          form.get("name"),
-        serving_model: form.get("serving_model"),
-        dataset_id:    datasetId     // string, never parseInt
+        dataset_id:    dsId,
+        serving_model: form.get("serving_model") || "SmolLM2-360M-Instruct",
+        name:          form.get("name") || "adapter-run"
       })
     });
-    e.target.reset();
-    showToast("Adapter run queued.", "ok");
+    showToast("Adapter run started in background.", "ok");
     await refreshAll();
   } catch (err) { showToast(err.message, "bad"); }
 });
@@ -1537,24 +1514,15 @@ async function renderRuns() {
   try { runs = await api("/runs"); }
   catch { runs = []; }
 
-  renderBuildPipeline(runs);
-
   const list = document.getElementById("run-list");
   if (!runs.length) {
-    list.innerHTML = `<div class="item-card"><div class="empty-state"><i data-lucide="cpu"></i>No runs yet. Register and approve a dataset, then build an adapter.</div></div>`;
+    list.innerHTML = `<div class="item-card"><div class="empty-state"><i data-lucide="cpu"></i>No adapter runs yet. Register and approve a dataset first.</div></div>`;
     lucide.createIcons({ nodes: [list] });
   } else {
-    const sortedRuns = runs.slice().sort((a, b) => {
-      const tA = a.created_at ? new Date(a.created_at).getTime() : 0;
-      const tB = b.created_at ? new Date(b.created_at).getTime() : 0;
-      if (tA !== tB) return tB - tA;
-      return (b.id || 0) - (a.id || 0);
-    });
-
-    const edgeMap = { queued:"edge-warn", building:"edge-warn", completed:"edge-ok", failed:"edge-bad" };
     const badgeMap = { queued:"neutral", building:"warn", completed:"ok", failed:"bad" };
-
-    list.innerHTML = sortedRuns.map((run, idx) => {
+    const edgeMap  = { building:"pulse-border-warn", failed:"pulse-border-bad" };
+    const sorted   = runs.slice().reverse();
+    list.innerHTML = sorted.map((run, idx) => {
       const isLatest = idx === 0;
       return `
         <div class="item-card ${edgeMap[run.status] || ""} ${isLatest ? 'model-card-recent' : ''}" style="${isLatest ? 'border: 1px solid var(--blue); box-shadow: 0 0 18px rgba(26, 111, 212, 0.35);' : ''}">
@@ -1700,11 +1668,12 @@ async function renderEvaluations() {
     list.innerHTML = `<div class="item-card"><div class="empty-state"><i data-lucide="shield-check"></i>No evaluations run yet. Each one calls the live model twice per test case — takes a few minutes on CPU.</div></div>`;
     lucide.createIcons({ nodes: [list] });
   } else {
-    // Surgical update path: if same eval IDs already in DOM and eval is running,
+    // Surgical update path: if same eval IDs already in DOM and eval is running & status is unchanged,
     // only update the progress bar + % text — no innerHTML swap, no blink
-    const existingIds = [...list.querySelectorAll("[data-eval-id]")].map(el => el.dataset.evalId);
-    const newIds      = evals.map(e => e.id);
-    const canPatch    = existingIds.length === newIds.length && newIds.every((id, i) => existingIds[i] === id);
+    const existingCards = [...list.querySelectorAll("[data-eval-id]")];
+    const existingIds   = existingCards.map(el => el.dataset.evalId);
+    const newIds        = evals.map(e => e.id);
+    const canPatch      = existingIds.length === newIds.length && newIds.every((id, i) => existingIds[i] === id && existingCards[i].dataset.evalStatus === evals[i].status);
 
     if (canPatch) {
       evals.forEach(ev => {
