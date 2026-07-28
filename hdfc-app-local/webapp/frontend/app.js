@@ -297,15 +297,29 @@ function setAuthRole(role) {
   const roleEmpBtn = document.getElementById("role-btn-emp");
   const roleUserBtn = document.getElementById("role-btn-user");
   const roleInp = document.getElementById("login-account-role");
+  const usernameLabel = document.getElementById("login-username-label");
+  const tempPassLink = document.getElementById("temp-pass-link");
+  const regRoleField = document.getElementById("reg-role-field");
+  const regEmpField = document.getElementById("reg-emp-field");
 
   if (roleInp) roleInp.value = role;
 
   if (role === "user") {
     if (roleUserBtn) { roleUserBtn.style.background = "var(--blue)"; roleUserBtn.style.color = "#fff"; }
     if (roleEmpBtn) { roleEmpBtn.style.background = "transparent"; roleEmpBtn.style.color = "var(--text-muted)"; }
+    if (usernameLabel) usernameLabel.textContent = "Customer ID or Registered Email";
+    if (tempPassLink) tempPassLink.style.display = "none";
+    if (regRoleField) regRoleField.style.display = "none";
+    if (regEmpField) regEmpField.style.display = "none";
   } else {
     if (roleEmpBtn) { roleEmpBtn.style.background = "var(--blue)"; roleEmpBtn.style.color = "#fff"; }
     if (roleUserBtn) { roleUserBtn.style.background = "transparent"; roleUserBtn.style.color = "var(--text-muted)"; }
+    if (usernameLabel) usernameLabel.textContent = "Username or Corporate Email";
+    if (tempPassLink) tempPassLink.style.display = "inline";
+    if (_currentAuthTab === "register") {
+      if (regRoleField) regRoleField.style.display = "block";
+      if (regEmpField) regEmpField.style.display = "block";
+    }
   }
 }
 
@@ -358,8 +372,13 @@ function switchAuthTab(tab) {
     loginTabBtn?.classList.remove("active");
     regTabBtn?.classList.add("active");
     if (regNameField) regNameField.style.display = "block";
-    if (regEmpField) regEmpField.style.display = "block";
-    if (regRoleField) regRoleField.style.display = "block";
+    if (_currentAuthRole === "employee") {
+      if (regEmpField) regEmpField.style.display = "block";
+      if (regRoleField) regRoleField.style.display = "block";
+    } else {
+      if (regEmpField) regEmpField.style.display = "none";
+      if (regRoleField) regRoleField.style.display = "none";
+    }
     if (btnText) btnText.textContent = "Create Account";
   } else {
     regTabBtn?.classList.remove("active");
@@ -817,18 +836,29 @@ if (loginForm) {
     }
 
     if (isRegister) {
-      if (!empIdInp || !usernameInp || !fullNameInp) {
-        showToast("Please fill in Full Name, HDFC Employee ID, Corporate Email, and Password.", "warn");
+      const accountRole = document.getElementById("login-account-role")?.value || _currentAuthRole || "employee";
+      const isCustomer = accountRole === "user";
+
+      if (!usernameInp || !fullNameInp) {
+        showToast(isCustomer ? "Please fill in Full Name, Email/ID, and Password." : "Please fill in Full Name, HDFC Employee ID, Corporate Email, and Password.", "warn");
         return;
       }
+      if (!isCustomer && !empIdInp) {
+        showToast("Please enter your HDFC Unique Employee ID.", "warn");
+        return;
+      }
+
+      const finalEmpId = isCustomer ? (empIdInp || `CUST-${Math.floor(100000 + Math.random() * 900000)}`) : empIdInp;
+      const finalRole = isCustomer ? "user" : roleSel;
+
       try {
         const emp = await api("/auth/register", {
           method: "POST",
           body: JSON.stringify({
-            employee_id: empIdInp,
+            employee_id: finalEmpId,
             full_name: fullNameInp,
             email: usernameInp,
-            role: roleSel,
+            role: finalRole,
             password: passwordInp
           })
         });

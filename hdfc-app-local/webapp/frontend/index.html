@@ -31,6 +31,19 @@
     <div class="login-sep"></div>
 
     <form id="login-form" class="login-form" autocomplete="off">
+      <div class="field-group" id="account-type-group" style="margin-bottom:14px">
+        <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">SELECT ACCESS ROLE</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--bg-main);padding:4px;border-radius:6px;border:1px solid var(--border-light)">
+          <button type="button" id="role-btn-emp" class="btn-role-tab active" onclick="setAuthRole('employee')" style="padding:7px 10px;font-size:11px;font-weight:700;border-radius:4px;border:none;background:var(--blue);color:#fff;cursor:pointer">
+            <i data-lucide="briefcase" style="width:12px;height:12px;vertical-align:-1px"></i> Employee / Admin
+          </button>
+          <button type="button" id="role-btn-user" class="btn-role-tab" onclick="setAuthRole('user')" style="padding:7px 10px;font-size:11px;font-weight:700;border-radius:4px;border:none;background:transparent;color:var(--text-muted);cursor:pointer">
+            <i data-lucide="user" style="width:12px;height:12px;vertical-align:-1px"></i> Customer / User
+          </button>
+        </div>
+        <input type="hidden" id="login-account-role" value="employee">
+      </div>
+
       <div class="float-field" id="reg-name-field" style="display:none">
         <input id="login-fullname" type="text" placeholder=" " autocomplete="name">
         <label for="login-fullname">Full Name</label>
@@ -45,21 +58,8 @@
 
       <div class="float-field">
         <input id="login-username" type="text" placeholder=" " autocomplete="username" required>
-        <label for="login-username">Username or Corporate Email</label>
+        <label id="login-username-label" for="login-username">Username or Corporate Email</label>
         <i data-lucide="mail"></i>
-      </div>
-
-      <div class="field-group" id="account-type-group" style="margin-bottom:12px">
-        <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px">Account Role Type</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--bg-main);padding:3px;border-radius:6px;border:1px solid var(--border-light)">
-          <button type="button" id="role-btn-emp" class="btn-role-tab active" onclick="setAuthRole('employee')" style="padding:6px 10px;font-size:11px;font-weight:700;border-radius:4px;border:none;background:var(--blue);color:#fff;cursor:pointer">
-            <i data-lucide="briefcase" style="width:12px;height:12px;vertical-align:-1px"></i> Employee / Admin
-          </button>
-          <button type="button" id="role-btn-user" class="btn-role-tab" onclick="setAuthRole('user')" style="padding:6px 10px;font-size:11px;font-weight:700;border-radius:4px;border:none;background:transparent;color:var(--text-muted);cursor:pointer">
-            <i data-lucide="user" style="width:12px;height:12px;vertical-align:-1px"></i> Customer / User
-          </button>
-        </div>
-        <input type="hidden" id="login-account-role" value="employee">
       </div>
 
       <div class="float-field" id="reg-role-field" style="display:none">
@@ -86,7 +86,7 @@
           <span>Remember me</span>
         </label>
         <div>
-          <a href="#" class="forgot" style="color:var(--blue);margin-right:12px" onclick="openTempPasscodeSignIn(); return false"><i data-lucide="key" style="width:11px;height:11px;vertical-align:-1px"></i> Temp Passcode</a>
+          <a href="#" class="forgot" id="temp-pass-link" style="color:var(--blue);margin-right:12px" onclick="openTempPasscodeSignIn(); return false"><i data-lucide="key" style="width:11px;height:11px;vertical-align:-1px"></i> Temp Passcode</a>
           <a href="#" class="forgot" onclick="openForgotPasswordModal(); return false">Forgot password?</a>
         </div>
       </div>
