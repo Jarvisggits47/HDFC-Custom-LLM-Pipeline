@@ -932,26 +932,30 @@ function doLogout() {
 
 // ===================================================
 // TAB SWITCHING
-// ===================================================
+function switchTab(tabId) {
+  document.querySelectorAll(".nav-item").forEach(b => b.classList.remove("active"));
+  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+
+  const navBtn = document.querySelector(`.nav-item[data-tab="${tabId}"]`);
+  if (navBtn) navBtn.classList.add("active");
+
+  const tabEl = document.getElementById(tabId);
+  if (tabEl) tabEl.classList.add("active");
+
+  if (tabId === "overview") renderDashboard();
+  else if (tabId === "datasets") renderDatasets();
+  else if (tabId === "runs") renderRuns();
+  else if (tabId === "evaluations") renderEvaluations();
+  else if (tabId === "registry") renderRegistry();
+  else if (tabId === "deployments") renderDeployments();
+  else if (tabId === "monitoring") renderMonitoring();
+  else if (tabId === "playground") renderDeployments();
+}
 
 document.querySelectorAll(".nav-item[data-tab]").forEach(btn => {
   btn.addEventListener("click", () => {
     if (btn.classList.contains("active")) return;
-    document.querySelectorAll(".nav-item").forEach(b => b.classList.remove("active"));
-    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
-    btn.classList.add("active");
-    const tabId = btn.dataset.tab;
-    const tabEl = document.getElementById(tabId);
-    if (tabEl) tabEl.classList.add("active");
-
-    // Zero-flicker lazy rendering of active tab only
-    if (tabId === "overview") renderDashboard();
-    else if (tabId === "datasets") renderDatasets();
-    else if (tabId === "runs") renderRuns();
-    else if (tabId === "evaluations") renderEvaluations();
-    else if (tabId === "registry") renderRegistry();
-    else if (tabId === "deployments") renderDeployments();
-    else if (tabId === "monitoring") renderMonitoring();
+    switchTab(btn.dataset.tab);
   });
 });
 
@@ -2031,12 +2035,24 @@ async function renderDeployments() {
     let options = [];
     if (active.length) {
       options = active.map(d => `<option value="${d.id}">🏦 ${esc(d.endpoint_name || "HDFC AI Assistant")}${isCustomer ? '' : ' (' + d.status + ')'}</option>`);
-    } else if (typeof _registryEntries !== "undefined" && _registryEntries.length) {
-      options = _registryEntries.map(m => `<option value="${m.id}">🏦 ${esc(m.assistant_name || m.version || 'HDFC AI Model')}</option>`);
-    } else if (typeof _allDatasets !== "undefined" && _allDatasets.length) {
-      options = _allDatasets.map(d => `<option value="${d.id}">🏦 ${esc(d.assistant_name || d.name + ' AI')}</option>`);
     } else {
-      options = [`<option value="">🏦 HDFC Official AI Banking Assistant</option>`];
+      let regList = (typeof _registryEntries !== "undefined" && _registryEntries.length) ? _registryEntries : [];
+      let dsList = (typeof _allDatasets !== "undefined" && _allDatasets.length) ? _allDatasets : [];
+
+      if (!regList.length) {
+        try { regList = await api("/registry"); } catch { regList = []; }
+      }
+      if (!dsList.length) {
+        try { dsList = await api("/datasets"); } catch { dsList = []; }
+      }
+
+      if (regList.length) {
+        options = regList.map(m => `<option value="${m.id}">🏦 ${esc(m.assistant_name || m.version || 'HDFC AI Model')}</option>`);
+      } else if (dsList.length) {
+        options = dsList.map(d => `<option value="${d.id}">🏦 ${esc(d.assistant_name || d.name + ' AI')}</option>`);
+      } else {
+        options = [`<option value="default-asst">🏦 HDFC Official AI Banking Assistant</option>`];
+      }
     }
 
     if (!isCustomer) {
@@ -2044,7 +2060,7 @@ async function renderDeployments() {
     }
 
     sel.innerHTML = options.join("");
-    if (prevVal) sel.value = prevVal; // restore user's selection
+    if (prevVal) sel.value = prevVal;
   }
 }
 
