@@ -138,6 +138,28 @@ def on_startup():
         if lead_emp:
             lead_emp.email = "jarvisanand85@gmail.com"
             db.commit()
+
+        # Auto-seed initial HDFC Bank Policy dataset if datasets table is empty
+        if db.query(models.Dataset).count() == 0:
+            default_ds = models.Dataset(
+                id=new_id("ds"),
+                owner_employee_id="HDFC-AI-101",
+                name="HDFC Bank Comprehensive Policy Portal v3.1",
+                assistant_name="HDFC Loan & Policy Specialist AI",
+                source="HDFC Intranet Policy Repository Q2-2026",
+                purpose="Grounded Q&A, loan eligibility, KYC, FD rules, and compliance guidance.",
+                status="approved",
+                classification="internal"
+            )
+            db.add(default_ds)
+            db.commit()
+            db.refresh(default_ds)
+
+            default_text = """HDFC Bank Fixed Deposit Policy 2026: Premature withdrawal of fixed deposits is subject to a 1.0% penalty on the applicable interest rate.
+HDFC Bank Savings Account Policy 2026: Regular savings accounts require a minimum average monthly balance of INR 10,000 in metro branches and INR 5,000 in semi-urban branches.
+HDFC Personal Loan Policy 2026: Personal loan interest rates range from 10.50% to 15.00% p.a. for salaried professionals with a credit score above 750.
+HDFC UPI & Digital Security 2026: Unrecognized digital transactions must be reported within 3 days for zero liability protection under RBI guidelines."""
+            ingest_document(db, default_ds.id, "HDFC_Master_Policy_2026.pdf", default_text)
     finally:
         db.close()
     local_llm.preload_models_background()
