@@ -709,7 +709,20 @@ def login_temp_passcode(request: Request, payload: schemas.TempLoginRequest, db:
     ).first()
 
     if not tp:
-        raise HTTPException(401, "Invalid, expired, or revoked temporary passcode.")
+        any_tp = db.query(models.TempPasscode).filter(
+            models.TempPasscode.employee_id == emp.employee_id,
+            models.TempPasscode.passcode == pass_code,
+        ).first()
+
+        if any_tp:
+            if any_tp.is_used or any_tp.status == "used":
+                raise HTTPException(401, "This temporary passcode has already been used. Please generate a new passcode from your main profile to log in.")
+            elif any_tp.status == "revoked":
+                raise HTTPException(401, "This temporary passcode was revoked because a new passcode was generated. Please generate a new passcode from your main profile to log in.")
+            elif any_tp.expires_at <= datetime.utcnow():
+                raise HTTPException(401, "This temporary passcode has expired (15-minute limit reached). Please generate a new passcode from your main profile to log in.")
+
+        raise HTTPException(401, "Invalid temporary passcode. Please generate a new passcode from your main profile to log in.")
 
     tp.is_used = True
     tp.status = "used"

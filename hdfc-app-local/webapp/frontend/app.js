@@ -1764,6 +1764,17 @@ async function renderRegistry() {
     list.innerHTML = `<div class="item-card"><div class="empty-state"><i data-lucide="library"></i>No registered models yet. Pass an evaluation gate first.</div></div>`;
     lucide.createIcons({ nodes: [list] });
   } else {
+    // Sort descending by version number (e.g. v17 -> v16 -> v2), then by creation time
+    const sorted = entries.slice().sort((a, b) => {
+      const vA = extractVersionNum(a.version);
+      const vB = extractVersionNum(b.version);
+      if (vA !== vB) return vB - vA; // Highest version number at top
+      const tA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const tB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      if (tA !== tB) return tB - tA;
+      return (b.id || 0) - (a.id || 0);
+    });
+
     const existingIds = [...list.querySelectorAll("[data-model-id]")].map(el => el.dataset.modelId);
     const newIds      = sorted.map(m => String(m.id));
     const canPatch    = existingIds.length === newIds.length && newIds.every((id, i) => existingIds[i] === id);
