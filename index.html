@@ -993,9 +993,14 @@
         <div style="border-top:1px solid var(--border-light);padding-top:12px">
           <div style="font-size:12px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
             <span><i data-lucide="monitor" style="width:14px;height:14px;vertical-align:-2px;color:var(--blue)"></i> Active Login Sessions</span>
-            <button type="button" class="btn-secondary btn-sm" style="font-size:10.5px;padding:2px 8px" onclick="renderActiveSessionsList()">
-              <i data-lucide="refresh-cw"></i> Refresh
-            </button>
+            <div style="display:flex;gap:6px">
+              <button type="button" class="btn-secondary btn-sm" style="font-size:10.5px;padding:2px 8px" onclick="clearStaleSessions()">
+                <i data-lucide="trash-2"></i> Clear History
+              </button>
+              <button type="button" class="btn-secondary btn-sm" style="font-size:10.5px;padding:2px 8px" onclick="renderActiveSessionsList()">
+                <i data-lucide="refresh-cw"></i> Refresh
+              </button>
+            </div>
           </div>
           <div id="active-sessions-container" style="max-height:160px;overflow-y:auto;display:flex;flex-direction:column;gap:8px">
             <!-- Populated dynamically by app.js -->
@@ -1014,6 +1019,6 @@
 <!-- Toast container -->
 <div id="toast-container" class="toast-container"></div>
 
-<script src="app.js?v=190"></script>
+<script src="app.js?v=200"></script>
 </body>
 </html>

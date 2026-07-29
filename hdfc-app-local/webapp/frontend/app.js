@@ -1132,6 +1132,19 @@ async function renderActiveSessionsList() {
   lucide.createIcons({ nodes: [container] });
 }
 
+async function clearStaleSessions() {
+  try {
+    await api("/auth/clear-sessions", { method: "POST" });
+  } catch (err) {
+    console.warn("Clear sessions fallback:", err);
+  }
+  localStorage.removeItem("hdfc_temp_passcode");
+  localStorage.removeItem("hdfc_temp_passcodes_list");
+  localStorage.removeItem("hdfc_terminated_sessions");
+  showToast("🧹 Cleared stale session history.", "ok");
+  renderActiveSessionsList();
+}
+
 function copyProfBackupCode() {
   const code = document.getElementById("prof-backup-code-display")?.textContent.trim() || "";
   if (code) {
