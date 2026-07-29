@@ -1091,8 +1091,12 @@ async function renderActiveSessionsList() {
     const apiRes = await api("/auth/active-sessions");
     if (Array.isArray(apiRes) && apiRes.length > 0) {
       apiRes.forEach(s => {
-        if (s && s.status === "active" && s.token !== currentToken && s.id !== "master-primary-sess") {
-          sessionsList.push(s);
+        const sToken = s.session_token || s.token || s.id;
+        const isCurrentMaster = (sToken === currentToken) || (s.id === "master-primary-sess");
+        if (s && s.status === "active" && !isCurrentMaster) {
+          if (!sessionsList.some(item => (item.token || item.id) === sToken)) {
+            sessionsList.push(s);
+          }
         }
       });
     }
@@ -1101,8 +1105,9 @@ async function renderActiveSessionsList() {
   }
 
   container.innerHTML = sessionsList.map(s => {
-    const isMaster = (s.id === "master-primary-sess") || (s.token === currentToken);
-    const idVal = s.id || s.token;
+    const sToken = s.session_token || s.token || s.id;
+    const isMaster = (s.id === "master-primary-sess") || (sToken === currentToken);
+    const idVal = s.id || sToken;
     return `
       <div id="sess-row-${idVal}" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1px solid var(--border-light);background:var(--bg-card-sub);border-radius:8px;margin-bottom:8px">
         <div>
@@ -1111,7 +1116,7 @@ async function renderActiveSessionsList() {
             ${esc(s.device_info || s.device || (isMaster ? `Chrome on Windows 11 (Master Primary — ${u.name || "Abhi"})` : "Temp Passcode Login"))}
           </div>
           <div style="font-size:10.5px;color:var(--text-muted);margin-top:3px">
-            IP: ${esc(s.ip_address || s.ip || "127.0.0.1")} · Token: ${esc(String(s.token || idVal).slice(0, 14))}…
+            IP: ${esc(s.ip_address || s.ip || "127.0.0.1")} · Token: ${esc(String(sToken).slice(0, 14))}…
           </div>
         </div>
         <div>

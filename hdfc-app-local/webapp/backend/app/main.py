@@ -1218,7 +1218,9 @@ def get_active_sessions(request: Request):
     active_list = []
     for s in reversed(user_sessions):
         if s.get("status") == "active":
-            active_list.append(s)
+            obj = dict(s)
+            obj["token"] = s.get("session_token") or s.get("token") or s.get("id")
+            active_list.append(obj)
 
     return active_list[:5]
 
