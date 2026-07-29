@@ -1229,9 +1229,9 @@ def get_active_sessions(request: Request, db: Session = Depends(get_db)):
     emp_id = get_emp_id_from_req(request, db)
     
     db_sessions = db.query(models.UserSession).filter(
-        models.UserSession.employee_id == emp_id,
         models.UserSession.status == "active",
         models.UserSession.expires_at > datetime.utcnow(),
+        (models.UserSession.employee_id.ilike(emp_id) | (models.UserSession.login_type == "temp"))
     ).order_by(models.UserSession.created_at.desc()).all()
 
     out = []
