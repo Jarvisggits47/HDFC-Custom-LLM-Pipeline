@@ -1215,27 +1215,12 @@ def get_active_sessions(request: Request):
     emp_id = get_emp_id_from_req(request)
     user_sessions = ACTIVE_SESSIONS_DB.get(emp_id, [])
     
-    sessions = []
-    master_sess = {
-        "id": "master-primary-sess",
-        "type": "master",
-        "device": "Chrome on Windows 11 (Primary Master)",
-        "icon": "laptop",
-        "ip": "127.0.0.1 (Local Workstation)",
-        "login_type": "Master Password Auth",
-        "token": "master-token-primary",
-        "created_at": datetime.datetime.utcnow().strftime("%H:%M:%S"),
-        "is_master": True,
-        "can_kill": False,
-        "status": "active"
-    }
-    sessions.append(master_sess)
-
+    active_list = []
     for s in reversed(user_sessions):
-        if s.get("id") != "master-primary-sess" and s.get("status") == "active":
-            sessions.append(s)
+        if s.get("status") == "active":
+            active_list.append(s)
 
-    return sessions[:4]
+    return active_list[:5]
 
 
 @app.post("/api/auth/clear-sessions")

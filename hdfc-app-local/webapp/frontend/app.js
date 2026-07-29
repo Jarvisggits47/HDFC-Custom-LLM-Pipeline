@@ -1075,12 +1075,14 @@ async function renderActiveSessionsList() {
   const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
   const currentToken = u.sessionToken || "sess-master-primary";
 
+  const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   const masterSession = {
     id: "master-primary-sess",
-    device_info: `Chrome on Windows 11 (Master Primary — ${u.name || "Abhi"})`,
+    device_info: `${isMobile ? "Safari/Chrome on Mobile Device" : "Chrome on Windows 11"} (Master Primary — ${u.name || "Abhi"})`,
     ip_address: "127.0.0.1 (Local Workstation)",
     login_type: "master",
-    token: currentToken
+    token: currentToken,
+    is_master: true
   };
 
   let sessionsList = [masterSession];
@@ -1089,7 +1091,7 @@ async function renderActiveSessionsList() {
     const apiRes = await api("/auth/active-sessions");
     if (Array.isArray(apiRes) && apiRes.length > 0) {
       apiRes.forEach(s => {
-        if (!s.is_master && s.status === "active" && !sessionsList.some(item => item.id === s.id || item.token === s.token)) {
+        if (s && s.status === "active" && s.token !== currentToken && s.id !== "master-primary-sess") {
           sessionsList.push(s);
         }
       });
@@ -1099,23 +1101,24 @@ async function renderActiveSessionsList() {
   }
 
   container.innerHTML = sessionsList.map(s => {
-    const isMaster = (s.id === "master-primary-sess") || (s.token === currentToken && currentToken !== "sess-master-primary");
+    const isMaster = (s.id === "master-primary-sess") || (s.token === currentToken);
+    const idVal = s.id || s.token;
     return `
-      <div id="sess-row-${s.id || s.token}" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1px solid var(--border-light);background:var(--bg-card-sub);border-radius:8px;margin-bottom:8px">
+      <div id="sess-row-${idVal}" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1px solid var(--border-light);background:var(--bg-card-sub);border-radius:8px;margin-bottom:8px">
         <div>
           <div style="font-size:12px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:6px">
             <i data-lucide="${isMaster ? "shield-check" : "smartphone"}" style="width:14px;height:14px;color:${isMaster ? "var(--ok)" : "var(--blue)"}"></i>
             ${esc(s.device_info || s.device || (isMaster ? `Chrome on Windows 11 (Master Primary — ${u.name || "Abhi"})` : "Temp Passcode Login"))}
           </div>
           <div style="font-size:10.5px;color:var(--text-muted);margin-top:3px">
-            IP: ${esc(s.ip_address || s.ip || "127.0.0.1")} · Token: ${esc(String(s.token || s.id).slice(0, 14))}…
+            IP: ${esc(s.ip_address || s.ip || "127.0.0.1")} · Token: ${esc(String(s.token || idVal).slice(0, 14))}…
           </div>
         </div>
         <div>
           ${isMaster ? `
             <span class="badge ok" style="font-size:10px"><i data-lucide="lock" style="width:10px;height:10px;margin-right:2px"></i> Master Account</span>
           ` : `
-            <button type="button" class="btn-secondary btn-sm" style="font-size:10.5px;color:var(--danger);border-color:rgba(239,68,68,0.4);padding:4px 9px" onclick="terminateSession('${esc(s.id || s.token)}')">
+            <button type="button" class="btn-secondary btn-sm" style="font-size:10.5px;color:var(--danger);border-color:rgba(239,68,68,0.4);padding:4px 9px" onclick="terminateSession('${esc(idVal)}')">
               <i data-lucide="power" style="width:11px;height:11px;margin-right:3px"></i> Kill Session
             </button>
           `}
