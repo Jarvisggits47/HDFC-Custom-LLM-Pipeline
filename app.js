@@ -797,8 +797,14 @@ function copyRegBackupCode() {
 async function openUserProfileModal() {
   const modal = document.getElementById("password-modal");
   let u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
-  const codeDisplay = document.getElementById("prof-backup-code-display");
+  const isCustomer = u.account_role === "user" || u.role === "user";
 
+  const btnTemp = document.getElementById("prof-tab-temp");
+  if (btnTemp) {
+    btnTemp.style.display = isCustomer ? "none" : "inline-flex";
+  }
+
+  const codeDisplay = document.getElementById("prof-backup-code-display");
   if (codeDisplay) {
     codeDisplay.textContent = u.backup_code || "Loading key...";
   }
@@ -826,21 +832,39 @@ async function openUserProfileModal() {
 function switchProfileTab(tab) {
   const btnPass = document.getElementById("prof-tab-pass");
   const btnRec = document.getElementById("prof-tab-recovery");
+  const btnTemp = document.getElementById("prof-tab-temp");
+
   const panelPass = document.getElementById("prof-panel-pass");
   const panelRec = document.getElementById("prof-panel-recovery");
+  const panelTemp = document.getElementById("prof-panel-temp");
   const updateBtn = document.getElementById("prof-update-pass-btn");
 
   if (tab === "recovery") {
     if (btnRec) btnRec.classList.add("active");
     if (btnPass) btnPass.classList.remove("active");
+    if (btnTemp) btnTemp.classList.remove("active");
+
     if (panelRec) panelRec.style.display = "block";
     if (panelPass) panelPass.style.display = "none";
+    if (panelTemp) panelTemp.style.display = "none";
+    if (updateBtn) updateBtn.style.display = "none";
+  } else if (tab === "temp") {
+    if (btnTemp) btnTemp.classList.add("active");
+    if (btnPass) btnPass.classList.remove("active");
+    if (btnRec) btnRec.classList.remove("active");
+
+    if (panelTemp) panelTemp.style.display = "block";
+    if (panelPass) panelPass.style.display = "none";
+    if (panelRec) panelRec.style.display = "none";
     if (updateBtn) updateBtn.style.display = "none";
   } else {
     if (btnPass) btnPass.classList.add("active");
     if (btnRec) btnRec.classList.remove("active");
+    if (btnTemp) btnTemp.classList.remove("active");
+
     if (panelPass) panelPass.style.display = "block";
     if (panelRec) panelRec.style.display = "none";
+    if (panelTemp) panelTemp.style.display = "none";
     if (updateBtn) updateBtn.style.display = "inline-flex";
   }
 }
