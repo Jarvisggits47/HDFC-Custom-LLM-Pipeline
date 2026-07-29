@@ -2266,7 +2266,14 @@ async function renderDeployments() {
   if (sel) {
     let options = [];
     if (active.length) {
-      options = active.map(d => `<option value="${d.id}">🏦 ${esc(d.endpoint_name || "HDFC AI Assistant")}${isCustomer ? '' : ' (' + d.status + ')'}</option>`);
+      options = active.map(d => {
+        let ep = d.endpoint_name || d.id || "HDFC AI Assistant";
+        if (ep.startsWith("banking-llm-")) {
+          const ver = ep.replace("banking-llm-", "").toUpperCase();
+          ep = `HDFC Banking Assistant ${ver}`;
+        }
+        return `<option value="${d.id}">🏦 ${esc(ep)}${isCustomer ? '' : ' (' + d.status + ')'}</option>`;
+      });
     } else {
       let regList = (typeof _registryEntries !== "undefined" && _registryEntries.length) ? _registryEntries : [];
       let dsList = (typeof _allDatasets !== "undefined" && _allDatasets.length) ? _allDatasets : [];
@@ -2279,11 +2286,15 @@ async function renderDeployments() {
       }
 
       if (regList.length) {
-        options = regList.map(m => `<option value="${m.id}">🏦 ${esc(m.assistant_name || m.version || 'HDFC AI Model')}</option>`);
+        options = regList.map(m => {
+          let name = m.assistant_name || m.version || 'HDFC AI Model';
+          if (name.startsWith("banking-llm-")) name = `HDFC Banking Assistant ${name.replace("banking-llm-", "").toUpperCase()}`;
+          return `<option value="${m.id}">🏦 ${esc(name)}</option>`;
+        });
       } else if (dsList.length) {
         options = dsList.map(d => `<option value="${d.id}">🏦 ${esc(d.assistant_name || d.name + ' AI')}</option>`);
       } else {
-        options = [`<option value="default-asst">🏦 HDFC Official AI Banking Assistant</option>`];
+        options = [`<option value="default-asst">🏦 HDFC Banking Assistant v7 (SmolLM2-360M)</option>`];
       }
     }
 
