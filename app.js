@@ -2298,9 +2298,7 @@ async function renderDeployments() {
       }
     }
 
-    if (!isCustomer) {
-      options.unshift(`<option value="">Base model — no deployment, no banking context</option>`);
-    }
+    options.unshift(`<option value="">🤖 Base Model — SmolLM2-360M (General AI)</option>`);
 
     sel.innerHTML = options.join("");
     if (prevVal) sel.value = prevVal;
