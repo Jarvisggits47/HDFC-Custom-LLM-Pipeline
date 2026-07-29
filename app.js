@@ -817,10 +817,20 @@ function getOrGenerateBackupCode(u) {
   return backupCode;
 }
 
+function isCustomerAccount(u) {
+  if (!u) return false;
+  const empId = String(u.empId || u.employee_id || "").toUpperCase();
+  const role = String(u.role || "");
+  if (empId.startsWith("HDFC-") || role === "Lead AI Engineer" || role === "AI Engineer" || role === "Admin" || role === "employee") {
+    return false;
+  }
+  return u.account_role === "user" || u.role === "user";
+}
+
 async function openUserProfileModal() {
   const modal = document.getElementById("password-modal");
   let u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
-  const isCustomer = u.account_role === "user" || u.role === "user";
+  const isCustomer = isCustomerAccount(u);
 
   const btnTemp = document.getElementById("prof-tab-temp");
   if (btnTemp) {
@@ -970,7 +980,7 @@ async function submitUpdatePassword() {
 
 function updateSidebarUser() {
   const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
-  const isCustomer = u.account_role === "user" || u.role === "user";
+  const isCustomer = isCustomerAccount(u);
   const empId = u.empId || (isCustomer ? "Customer" : "HDFC-AI-101");
   const name = u.name || (isCustomer ? "Customer User" : "Abhi");
   const role = isCustomer ? "Customer Account" : (u.role || "Lead AI Engineer");
@@ -1134,7 +1144,8 @@ if (loginForm) {
           body: JSON.stringify({ username_or_id: usernameInp, password: passwordInp })
         });
 
-        const accountRole = document.getElementById("login-account-role")?.value || _currentAuthRole || "employee";
+        const isEmp = emp.employee_id.toUpperCase().startsWith("HDFC-") || emp.role === "Lead AI Engineer" || emp.role === "AI Engineer";
+        const accountRole = isEmp ? "employee" : (document.getElementById("login-account-role")?.value || _currentAuthRole || "employee");
         const user = { empId: emp.employee_id, name: emp.full_name, role: emp.role, account_role: accountRole, email: emp.email, backup_code: emp.backup_code, loginTime: Date.now() };
         sessionStorage.setItem(USER_KEY, JSON.stringify(user));
         resetUserSession();
