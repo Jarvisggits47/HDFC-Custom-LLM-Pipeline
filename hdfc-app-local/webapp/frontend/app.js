@@ -871,6 +871,11 @@ async function openUserProfileModal() {
     nameInput.value = u.name || "";
   }
 
+  const emailDisplay = document.getElementById("update-prof-email-display");
+  if (emailDisplay) {
+    emailDisplay.textContent = u.email || u.empId || "N/A";
+  }
+
   const backupCode = getOrGenerateBackupCode(u);
   const codeDisplay = document.getElementById("prof-backup-code-display");
   if (codeDisplay) {
@@ -1276,16 +1281,18 @@ if (loginForm) {
   });
 }
 
-const pwToggle = document.getElementById("pw-toggle");
-if (pwToggle) {
-  pwToggle.addEventListener("click", () => {
-    const inp = document.getElementById("login-password");
-    const showing = inp.type === "text";
-    inp.type = showing ? "password" : "text";
-    pwToggle.innerHTML = `<i data-lucide="${showing ? "eye" : "eye-off"}"></i>`;
-    lucide.createIcons({ nodes: [pwToggle] });
-  });
-}
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest(".pw-toggle");
+  if (!btn) return;
+  e.preventDefault();
+  const wrap = btn.closest(".pw-input-wrap") || btn.closest(".float-field");
+  const inp = wrap ? wrap.querySelector("input") : null;
+  if (!inp) return;
+  const isPass = inp.type === "password";
+  inp.type = isPass ? "text" : "password";
+  btn.innerHTML = `<i data-lucide="${isPass ? "eye-off" : "eye"}"></i>`;
+  lucide.createIcons({ nodes: [btn] });
+});
 
 function doLogout() {
   sessionStorage.removeItem(USER_KEY);
