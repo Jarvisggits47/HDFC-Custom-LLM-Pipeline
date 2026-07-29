@@ -1160,7 +1160,7 @@ def generate_temp_passcode_endpoint(request: Request):
     return {"status": "ok", "passcode": code, "expires_in": "15m"}
 
 @app.post("/api/auth/login-temp-passcode")
-def login_temp_passcode_endpoint(payload: dict, db: Session = Depends(get_db)):
+def login_temp_passcode_endpoint(payload: dict, request: Request, db: Session = Depends(get_db)):
     username = payload.get("username_or_email", "").strip()
     raw_passcode = payload.get("passcode", "").strip().upper()
 
@@ -1178,15 +1178,21 @@ def login_temp_passcode_endpoint(payload: dict, db: Session = Depends(get_db)):
     session_token = f"sess-{uuid.uuid4().hex[:12]}"
     emp_id = emp.employee_id if emp else "HDFC-AI-101"
     
-    # Store temporary passcode session
+    user_agent = request.headers.get("User-Agent", "").lower()
+    client_ip = request.client.host if request.client else "127.0.0.1"
+    is_mobile = any(k in user_agent for k in ["mobile", "android", "iphone", "ipad"])
+    device_label = "Safari/Chrome on Mobile Device" if is_mobile else "Secondary Browser / Workstation"
+    device_icon = "smartphone" if is_mobile else "laptop"
+
     temp_sess = {
         "id": f"sess-temp-{random.randint(100,999)}",
         "type": "temp",
-        "device": "Temp Passcode Session (Mobile/Remote)",
-        "ip": "10.42.0.88",
-        "login_type": "Temp Passcode",
+        "device": device_label,
+        "icon": device_icon,
+        "ip": f"{client_ip}",
+        "auth_type": f"Temp Passcode Override ({raw_passcode})",
         "token": session_token,
-        "created_at": datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+        "created_at": datetime.datetime.utcnow().strftime("%H:%M:%S"),
         "is_master": False,
         "can_kill": True,
         "status": "active"

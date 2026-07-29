@@ -747,6 +747,22 @@ async function submitTempPasscodeSignIn() {
     loginTime: Date.now()
   };
 
+  const isMobileDevice = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const tempSessRecord = {
+    id: `sess-temp-${Math.floor(100 + Math.random() * 900)}`,
+    device: isMobileDevice ? "Safari/Chrome on Mobile Device" : "Secondary Browser / Workstation",
+    ip: "10.42.0.88 (Mobile Gateway)",
+    auth_type: `Temp Passcode Override (${rawPasscode})`,
+    token: user.sessionToken,
+    is_master: false,
+    status: "active",
+    created_at: new Date().toLocaleTimeString()
+  };
+
+  const globalSessions = JSON.parse(localStorage.getItem("hdfc_global_temp_sessions") || "[]");
+  globalSessions.push(tempSessRecord);
+  localStorage.setItem("hdfc_global_temp_sessions", JSON.stringify(globalSessions));
+
   sessionStorage.setItem(USER_KEY, JSON.stringify(user));
   closeTempSignInModal();
   resetUserSession();
@@ -1059,21 +1075,39 @@ async function renderActiveSessionsList() {
   const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
   const currentToken = u.sessionToken || "sess-master-primary";
 
+  const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   const masterSession = {
     id: "master-primary-sess",
-    device: `Chrome on Windows 11 (Master Primary — ${u.name || "Abhi"})`,
+    device: `${isMobile ? "Safari/Chrome on Mobile Device" : "Chrome on Windows 11"} (Master Primary — ${u.name || "Abhi"})`,
+    icon: isMobile ? "smartphone" : "laptop",
     ip: "127.0.0.1 (Local Workstation)",
     auth_type: "Master Password Login",
     token: currentToken,
-    is_master: true
+    is_master: true,
+    status: "active"
   };
 
   let activeList = [masterSession];
 
-  const tempSess = JSON.parse(sessionStorage.getItem("hdfc_active_temp_session") || "null");
-  if (tempSess && tempSess.status === "active") {
-    activeList.push(tempSess);
+  try {
+    const apiSessions = await api("/auth/active-sessions");
+    if (Array.isArray(apiSessions) && apiSessions.length > 0) {
+      apiSessions.forEach(s => {
+        if (!s.is_master && s.status === "active" && !activeList.some(item => item.id === s.id || item.token === s.token)) {
+          activeList.push(s);
+        }
+      });
+    }
+  } catch (err) {
+    console.warn("Backend active-sessions sync fallback:", err);
   }
+
+  const globalSessions = JSON.parse(localStorage.getItem("hdfc_global_temp_sessions") || "[]");
+  globalSessions.forEach(s => {
+    if (s && s.status === "active" && !activeList.some(item => item.id === s.id || item.token === s.token)) {
+      activeList.push(s);
+    }
+  });
 
   container.innerHTML = activeList.map(s => {
     const isMaster = s.is_master || s.id === "master-primary-sess";
@@ -1081,7 +1115,7 @@ async function renderActiveSessionsList() {
       <div id="sess-row-${s.id}" style="background:var(--bg-card-sub);border:1px solid var(--border-light);border-radius:8px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;transition:all 0.3s ease">
         <div>
           <div style="font-size:12px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:6px">
-            <i data-lucide="${isMaster ? "shield-check" : "smartphone"}" style="width:14px;height:14px;color:${isMaster ? "var(--ok)" : "var(--blue)"}"></i>
+            <i data-lucide="${isMaster ? "shield-check" : (s.icon || "smartphone")}" style="width:14px;height:14px;color:${isMaster ? "var(--ok)" : "var(--blue)"}"></i>
             ${esc(s.device)}
           </div>
           <div style="font-size:10.5px;color:var(--text-muted);margin-top:3px">
@@ -1109,10 +1143,17 @@ function killActiveSession(sessionId) {
     showToast("⚠️ Master Primary Session is protected and cannot be killed.", "warn");
     return;
   }
+
+  const globalSessions = JSON.parse(localStorage.getItem("hdfc_global_temp_sessions") || "[]");
+  const filtered = globalSessions.filter(s => s.id !== sessionId && s.token !== sessionId);
+  localStorage.setItem("hdfc_global_temp_sessions", JSON.stringify(filtered));
+
   sessionStorage.removeItem("hdfc_active_temp_session");
   localStorage.removeItem("hdfc_temp_passcode");
   localStorage.removeItem("hdfc_temp_passcodes_list");
   localStorage.removeItem("hdfc_terminated_sessions");
+
+  api(`/auth/terminate-session/${sessionId}`, { method: "POST" }).catch(() => {});
 
   const el = document.getElementById(`sess-row-${sessionId}`);
   if (el) {
@@ -1134,10 +1175,11 @@ async function clearStaleSessions() {
   } catch (err) {
     console.warn("Clear sessions fallback:", err);
   }
+  localStorage.removeItem("hdfc_global_temp_sessions");
   localStorage.removeItem("hdfc_temp_passcode");
   localStorage.removeItem("hdfc_temp_passcodes_list");
   localStorage.removeItem("hdfc_terminated_sessions");
-  showToast("🧹 Cleared stale session history.", "ok");
+  showToast("🧹 Cleared all stale session history.", "ok");
   renderActiveSessionsList();
 }
 
@@ -3366,5 +3408,19 @@ function bootApp(forceReset = false) {
     }, 30000);
   }
 }
+
+window.addEventListener("storage", (e) => {
+  if (e.key === "hdfc_global_temp_sessions" || e.key === "hdfc_temp_passcode") {
+    renderActiveSessionsList();
+  }
+});
+
+setInterval(() => {
+  const modal = document.getElementById("password-modal");
+  const tempPanel = document.getElementById("prof-panel-temp");
+  if (modal && modal.style.display !== "none" && tempPanel && tempPanel.style.display !== "none") {
+    renderActiveSessionsList();
+  }
+}, 3000);
 
 checkLogin();
