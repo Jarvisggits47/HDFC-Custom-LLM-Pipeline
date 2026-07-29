@@ -1088,8 +1088,11 @@ def reset_password(payload: schemas.EmployeePasswordResetRequest, db: Session = 
         raise HTTPException(404, f"Account matching '{search_term}' not found. Please check your Customer ID or Email.")
 
     if raw_code:
-        if not emp.backup_code or emp.backup_code.strip().upper() != raw_code:
-            raise HTTPException(400, f"Invalid Backup Recovery Code for '{emp.email}'. Please verify your 6-digit recovery code.")
+        db_code = (emp.backup_code or "").strip().upper()
+        clean_db = db_code.replace("SEC-", "").strip()
+        clean_input = raw_code.replace("SEC-", "").strip()
+        if not clean_db or clean_db != clean_input:
+            raise HTTPException(400, f"Invalid Backup Recovery Code for '{emp.email}'. Please check your 6-digit code.")
 
     emp.password = payload.new_password
     db.commit()
