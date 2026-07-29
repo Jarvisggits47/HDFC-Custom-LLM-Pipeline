@@ -829,12 +829,12 @@ function isCustomerAccount(u) {
   const role = String(u.role || "").toLowerCase();
   const accountRole = String(u.account_role || "").toLowerCase();
 
-  if (empId.startsWith("HDFC-") || role.includes("engineer") || role.includes("admin") || role === "employee") {
-    return false;
+  if (empId.includes("CUST") || role.includes("customer") || role === "user" || accountRole === "user") {
+    return true;
   }
 
-  if (empId.startsWith("CUST-") || role.includes("customer") || role === "user" || accountRole === "user") {
-    return true;
+  if (empId.startsWith("HDFC-AI-") || role.includes("engineer") || role.includes("admin") || role === "employee") {
+    return false;
   }
 
   return accountRole === "user" || role.includes("user");
@@ -846,10 +846,14 @@ async function openUserProfileModal() {
   const isCustomer = isCustomerAccount(u);
 
   const btnTemp = document.getElementById("prof-tab-temp");
+  const panelTemp = document.getElementById("prof-panel-temp");
   const tabContainer = document.getElementById("prof-role-selector-bar");
 
   if (btnTemp) {
     btnTemp.style.display = isCustomer ? "none" : "inline-flex";
+  }
+  if (panelTemp && isCustomer) {
+    panelTemp.style.display = "none";
   }
 
   if (tabContainer) {
