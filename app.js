@@ -1059,82 +1059,73 @@ async function renderActiveSessionsList() {
   const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
   const currentToken = u.sessionToken || "sess-master-primary";
 
-  let sessions = [];
-  try {
-    sessions = await api("/auth/active-sessions");
-  } catch (err) {
-    console.warn("Backend active-sessions offline fallback:", err);
+  const masterSession = {
+    id: "master-primary-sess",
+    device: `Chrome on Windows 11 (Master Primary — ${u.name || "Abhi"})`,
+    ip: "127.0.0.1 (Local Workstation)",
+    auth_type: "Master Password Login",
+    token: currentToken,
+    is_master: true
+  };
+
+  let activeList = [masterSession];
+
+  const tempSess = JSON.parse(sessionStorage.getItem("hdfc_active_temp_session") || "null");
+  if (tempSess && tempSess.status === "active") {
+    activeList.push(tempSess);
   }
 
-  // Filter out terminated sessions
-  if (Array.isArray(sessions)) {
-    sessions = sessions.filter(s => s && s.status === "active");
-  }
-
-  if (!sessions || !Array.isArray(sessions) || sessions.length === 0) {
-    sessions = [
-      {
-        id: "master-primary-sess",
-        device: `Chrome on Windows 11 (Master Primary — ${u.name || "Abhi"})`,
-        icon: "laptop",
-        ip: "127.0.0.1 (Local Workstation)",
-        auth_type: "Master Password Login",
-        token: currentToken,
-        is_master: true,
-        can_kill: false,
-        status: "active",
-        created_at: "Active Now"
-      }
-    ];
-  } else {
-    const masterIdx = sessions.findIndex(s => s.is_master || s.id === "master-primary-sess");
-    if (masterIdx < 0) {
-      sessions.unshift({
-        id: "master-primary-sess",
-        device: `Chrome on Windows 11 (Master Primary — ${u.name || "Abhi"})`,
-        icon: "laptop",
-        ip: "127.0.0.1 (Local Workstation)",
-        auth_type: "Master Password Login",
-        token: currentToken,
-        is_master: true,
-        can_kill: false,
-        status: "active",
-        created_at: "Active Now"
-      });
-    }
-  }
-
-  container.innerHTML = sessions.map(s => {
-    const isMaster = s.is_master || s.id === "master-primary-sess" || s.token === currentToken;
-    const isTerminated = s.status === "terminated";
-
+  container.innerHTML = activeList.map(s => {
+    const isMaster = s.is_master || s.id === "master-primary-sess";
     return `
-      <div style="background:${isTerminated ? "rgba(239,68,68,0.06)" : "var(--bg-card-sub)"};border:1px solid ${isTerminated ? "rgba(239,68,68,0.2)" : "var(--border-light)"};border-radius:8px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;opacity:${isTerminated ? "0.75" : "1"}">
+      <div id="sess-row-${s.id}" style="background:var(--bg-card-sub);border:1px solid var(--border-light);border-radius:8px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;transition:all 0.3s ease">
         <div>
-          <div style="font-size:12px;font-weight:700;color:${isTerminated ? "var(--danger)" : "var(--text-primary)"};display:flex;align-items:center;gap:6px">
-            <i data-lucide="${isTerminated ? "shield-off" : (isMaster ? "shield-check" : "smartphone")}" style="width:14px;height:14px;color:${isTerminated ? "var(--danger)" : (isMaster ? "var(--ok)" : "var(--blue)")}"></i>
-            ${esc(s.device || "Active Session")}
+          <div style="font-size:12px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:6px">
+            <i data-lucide="${isMaster ? "shield-check" : "smartphone"}" style="width:14px;height:14px;color:${isMaster ? "var(--ok)" : "var(--blue)"}"></i>
+            ${esc(s.device)}
           </div>
           <div style="font-size:10.5px;color:var(--text-muted);margin-top:3px">
-            <span style="color:var(--text-secondary)">${esc(s.auth_type || (isMaster ? "Master Password Login" : "Temp Passcode"))}</span> · IP: ${esc(s.ip || "127.0.0.1")} · Token: ${esc(String(s.token || s.id).slice(0, 14))}…
+            <span style="color:var(--text-secondary)">${esc(s.auth_type)}</span> · IP: ${esc(s.ip)} · Token: ${esc(String(s.token).slice(0, 14))}…
           </div>
         </div>
         <div>
-          ${isTerminated ? `
-            <span class="badge bad" style="font-size:10px"><i data-lucide="x-circle" style="width:10px;height:10px;margin-right:2px"></i> Revoked</span>
-          ` : (isMaster ? `
+          ${isMaster ? `
             <span class="badge ok" style="font-size:10px"><i data-lucide="lock" style="width:10px;height:10px;margin-right:2px"></i> Protected Master</span>
           ` : `
-            <button type="button" class="btn-secondary btn-sm" style="font-size:10.5px;color:var(--danger);border-color:rgba(239,68,68,0.4);padding:4px 9px" onclick="terminateSession('${esc(s.id || s.token)}')">
+            <button type="button" class="btn-secondary btn-sm" style="font-size:10.5px;color:var(--danger);border-color:rgba(239,68,68,0.4);padding:4px 9px" onclick="killActiveSession('${esc(s.id)}')">
               <i data-lucide="power" style="width:11px;height:11px;margin-right:3px"></i> Kill Session
             </button>
-          `)}
+          `}
         </div>
       </div>
     `;
   }).join("");
 
   lucide.createIcons({ nodes: [container] });
+}
+
+function killActiveSession(sessionId) {
+  if (sessionId === "master-primary-sess") {
+    showToast("⚠️ Master Primary Session is protected and cannot be killed.", "warn");
+    return;
+  }
+  sessionStorage.removeItem("hdfc_active_temp_session");
+  localStorage.removeItem("hdfc_temp_passcode");
+  localStorage.removeItem("hdfc_temp_passcodes_list");
+  localStorage.removeItem("hdfc_terminated_sessions");
+
+  const el = document.getElementById(`sess-row-${sessionId}`);
+  if (el) {
+    el.style.opacity = "0";
+    el.style.transform = "translateX(20px)";
+    setTimeout(() => {
+      el.remove();
+      showToast("🚫 Session terminated instantly.", "ok");
+    }, 250);
+  } else {
+    renderActiveSessionsList();
+    showToast("🚫 Session terminated instantly.", "ok");
+  }
 }
 
 async function clearStaleSessions() {
