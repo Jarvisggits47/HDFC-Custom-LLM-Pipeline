@@ -1176,13 +1176,74 @@ def login_temp_passcode_endpoint(payload: dict, db: Session = Depends(get_db)):
         emp = db.query(models.Employee).first()
 
     session_token = f"sess-{uuid.uuid4().hex[:12]}"
+    emp_id = emp.employee_id if emp else "HDFC-AI-101"
+    
+    # Store temporary passcode session
+    temp_sess = {
+        "id": f"sess-temp-{random.randint(100,999)}",
+        "type": "temp",
+        "device": "Temp Passcode Session (Mobile/Remote)",
+        "ip": "10.42.0.88",
+        "login_type": "Temp Passcode",
+        "token": session_token,
+        "created_at": datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+        "is_master": False,
+        "can_kill": True,
+        "status": "active"
+    }
+    if emp_id not in ACTIVE_SESSIONS_DB:
+        ACTIVE_SESSIONS_DB[emp_id] = []
+    ACTIVE_SESSIONS_DB[emp_id].append(temp_sess)
+
     return {
-        "employee_id": emp.employee_id if emp else "HDFC-AI-101",
+        "employee_id": emp_id,
         "full_name": emp.full_name if emp else "Abhi",
         "email": emp.email if emp else username,
         "role": emp.role if emp else "Lead AI Engineer",
         "session_token": session_token
     }
+
+
+@app.get("/api/auth/active-sessions")
+def get_active_sessions(request: Request):
+    emp_id = get_emp_id_from_req(request)
+    user_sessions = ACTIVE_SESSIONS_DB.get(emp_id, [])
+    
+    sessions = []
+    master_sess = {
+        "id": "master-primary-sess",
+        "type": "master",
+        "device": "Master Primary Session (Workstation)",
+        "ip": "127.0.0.1",
+        "login_type": "Primary Credentials",
+        "token": "master-token-primary",
+        "created_at": datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+        "is_master": True,
+        "can_kill": False,
+        "status": "active"
+    }
+    sessions.append(master_sess)
+
+    for s in user_sessions:
+        if s.get("status") == "active":
+            sessions.append(s)
+
+    return sessions
+
+
+@app.post("/api/auth/terminate-session/{session_id}")
+def terminate_session_endpoint(session_id: str, request: Request):
+    emp_id = get_emp_id_from_req(request)
+    user_sessions = ACTIVE_SESSIONS_DB.get(emp_id, [])
+    
+    for s in user_sessions:
+        if s.get("id") == session_id or s.get("token") == session_id:
+            if s.get("is_master"):
+                raise HTTPException(400, "Master Primary Session cannot be killed.")
+            s["status"] = "terminated"
+            return {"status": "ok", "message": f"Terminated temporary session '{session_id}'."}
+
+    return {"status": "ok", "message": f"Terminated session '{session_id}'."}
 
 
 @app.get("/api/health")

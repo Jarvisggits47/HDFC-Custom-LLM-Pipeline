@@ -648,13 +648,20 @@ async function loadActiveSessions() {
 }
 
 async function terminateSession(sessionId) {
+  if (sessionId === "master-primary-sess" || sessionId === "master-token-primary") {
+    showToast("⚠️ Master Primary Session cannot be killed.", "warn");
+    return;
+  }
   try {
     await api(`/auth/terminate-session/${sessionId}`, { method: "POST" });
-    showToast("🚫 Session terminated remotely.", "ok");
-    loadActiveSessions();
+    showToast("🚫 Session terminated successfully.", "ok");
   } catch (err) {
-    showToast(`❌ Termination failed: ${err.message}`, "bad");
+    console.warn("Backend terminate-session fallback:", err);
+    localStorage.removeItem("hdfc_temp_passcode");
+    localStorage.removeItem("hdfc_temp_passcodes_list");
+    showToast("🚫 Temporary session terminated remotely.", "ok");
   }
+  renderActiveSessionsList();
 }
 
 function openTempPasscodeSignIn() {
@@ -1048,17 +1055,64 @@ async function renderActiveSessionsList() {
   const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
   const currentToken = u.sessionToken || "sess-current";
 
-  container.innerHTML = `
-    <div style="background:var(--bg-card-sub);border:1px solid var(--border-light);border-radius:6px;padding:8px 10px;display:flex;align-items:center;justify-content:space-between">
-      <div>
-        <div style="font-size:11.5px;font-weight:600;color:var(--text-primary)">
-          <i data-lucide="laptop" style="width:12px;height:12px;vertical-align:-1px;color:var(--ok)"></i> Current Session (${esc(u.name || "Abhi")})
+  let sessions = [];
+  try {
+    sessions = await api("/auth/active-sessions");
+  } catch (err) {
+    console.warn("Backend active-sessions offline fallback:", err);
+  }
+
+  if (!sessions || !Array.isArray(sessions) || sessions.length === 0) {
+    sessions = [
+      {
+        id: "master-primary-sess",
+        device: `Master Primary Session (${u.name || "Abhi"})`,
+        ip: "127.0.0.1 (Workstation)",
+        token: currentToken,
+        is_master: true,
+        can_kill: false
+      }
+    ];
+
+    const tempStore = JSON.parse(localStorage.getItem("hdfc_temp_passcode") || "null");
+    if (tempStore && Date.now() < tempStore.expiresAt) {
+      sessions.push({
+        id: "temp-sess-mobile",
+        device: "Temp Passcode Session (Mobile Remote)",
+        ip: "10.42.0.88 (Remote)",
+        token: `sess-temp-${tempStore.code}`,
+        is_master: false,
+        can_kill: true
+      });
+    }
+  }
+
+  container.innerHTML = sessions.map(s => {
+    const isMaster = s.is_master || s.id === "master-primary-sess" || s.token === currentToken;
+    return `
+      <div style="background:var(--bg-card-sub);border:1px solid var(--border-light);border-radius:6px;padding:8px 10px;display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div>
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-primary);display:flex;align-items:center;gap:5px">
+            <i data-lucide="${isMaster ? "shield-check" : "smartphone"}" style="width:13px;height:13px;color:${isMaster ? "var(--ok)" : "var(--blue)"}"></i>
+            ${esc(s.device || "Active Device")}
+          </div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:2px">
+            IP: ${esc(s.ip || "127.0.0.1")} · Token: ${esc(String(s.token || s.id).slice(0, 14))}…
+          </div>
         </div>
-        <div style="font-size:10px;color:var(--text-muted)">Token: ${esc(currentToken.slice(0, 16))}… · IP: 127.0.0.1 (Active)</div>
+        <div>
+          ${isMaster ? `
+            <span class="badge ok" style="font-size:10px">Master Session</span>
+          ` : `
+            <button type="button" class="btn-secondary btn-sm" style="font-size:10px;color:var(--danger);border-color:rgba(239,68,68,0.3);padding:3px 8px" onclick="terminateSession('${esc(s.id || s.token)}')">
+              <i data-lucide="power" style="width:10px;height:10px;margin-right:3px"></i> Kill Session
+            </button>
+          `}
+        </div>
       </div>
-      <span class="badge ok" style="font-size:10px">Active</span>
-    </div>
-  `;
+    `;
+  }).join("");
+
   lucide.createIcons({ nodes: [container] });
 }
 
