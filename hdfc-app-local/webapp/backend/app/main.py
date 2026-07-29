@@ -1258,9 +1258,11 @@ def get_active_sessions(request: Request, db: Session = Depends(get_db)):
 @app.post("/api/auth/clear-sessions")
 def clear_sessions_endpoint(request: Request, db: Session = Depends(get_db)):
     emp_id = get_emp_id_from_req(request, db)
+    curr_token = request.headers.get("X-Session-Token", "")
+    
     db.query(models.UserSession).filter(
         models.UserSession.employee_id == emp_id,
-        models.UserSession.login_type != "master"
+        models.UserSession.session_token != curr_token
     ).update({"status": "terminated"}, synchronize_session=False)
     db.commit()
 
@@ -1272,11 +1274,14 @@ def clear_sessions_endpoint(request: Request, db: Session = Depends(get_db)):
 @app.post("/api/auth/terminate-session/{session_id}")
 def terminate_session_endpoint(session_id: str, request: Request, db: Session = Depends(get_db)):
     emp_id = get_emp_id_from_req(request, db)
+    curr_token = request.headers.get("X-Session-Token", "")
+
+    if session_id == curr_token or session_id == "master-primary-sess":
+        raise HTTPException(400, "Active Primary Master Session cannot be killed.")
     
     db.query(models.UserSession).filter(
         (models.UserSession.id == session_id) | (models.UserSession.session_token == session_id),
-        models.UserSession.employee_id == emp_id,
-        models.UserSession.login_type != "master"
+        models.UserSession.employee_id == emp_id
     ).update({"status": "terminated"}, synchronize_session=False)
     db.commit()
 

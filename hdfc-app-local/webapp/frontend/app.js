@@ -1084,7 +1084,7 @@ async function renderActiveSessionsList() {
 
     container.innerHTML = sessions.map(s => {
       const sToken = s.session_token || s.token || s.id;
-      const isMaster = (s.login_type === "master") || (s.id === "master-primary-sess") || (sToken === currentToken);
+      const isMaster = (s.id === "master-primary-sess") || (sToken === currentToken);
       const idVal = s.id || sToken;
 
       return `
@@ -1092,7 +1092,7 @@ async function renderActiveSessionsList() {
           <div>
             <div style="font-size:12px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:6px">
               <i data-lucide="${isMaster ? 'shield-check' : 'smartphone'}" style="width:14px;height:14px;color:${isMaster ? 'var(--ok)' : 'var(--blue)'}"></i>
-              ${esc(s.device_info || s.device || (isMaster ? `Chrome on Windows 11 (Primary Master)` : "Temp Passcode Login"))}
+              ${esc(s.device_info || s.device || (isMaster ? `Chrome on Windows 11 (Primary Master)` : "Previous Login Session"))}
             </div>
             <div style="font-size:10.5px;color:var(--text-muted);margin-top:3px">
               Type: <span style="color:${isMaster ? 'var(--ok)' : 'var(--blue)'}">${esc(s.login_type || (isMaster ? 'master' : 'temp'))}</span> · IP: ${esc(s.ip_address || s.ip || '127.0.0.1')} · Token: ${esc(String(sToken).slice(0, 14))}…
