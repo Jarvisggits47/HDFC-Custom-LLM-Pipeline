@@ -888,15 +888,15 @@
     </div>
     <div class="modal-body" style="padding:20px">
       <!-- Profile Modal Tab Bar -->
-      <div class="role-selector-bar" style="margin-bottom:16px">
+      <div id="prof-role-selector-bar" class="role-selector-bar">
         <button type="button" class="role-sel-btn active" id="prof-tab-pass" onclick="switchProfileTab('pass')">
           <i data-lucide="lock"></i> Update Password
         </button>
         <button type="button" class="role-sel-btn" id="prof-tab-recovery" onclick="switchProfileTab('recovery')">
           <i data-lucide="key"></i> Recovery Code
         </button>
-        <button type="button" class="role-sel-btn" id="prof-tab-temp" onclick="switchProfileTab('temp')">
-          <i data-lucide="shield-alert"></i> Temp Passcodes &amp; Sessions
+        <button type="button" class="role-sel-btn" id="prof-tab-temp" onclick="switchProfileTab('temp')" style="display:none">
+          <i data-lucide="shield-alert"></i> Temp &amp; Sessions
         </button>
       </div>
 
@@ -989,6 +989,6 @@
 <!-- Toast container -->
 <div id="toast-container" class="toast-container"></div>
 
-<script src="app.js?v=85"></script>
+<script src="app.js?v=90"></script>
 </body>
 </html>

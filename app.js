@@ -826,11 +826,18 @@ function getOrGenerateBackupCode(u) {
 function isCustomerAccount(u) {
   if (!u) return false;
   const empId = String(u.empId || u.employee_id || "").toUpperCase();
-  const role = String(u.role || "");
-  if (empId.startsWith("HDFC-") || role === "Lead AI Engineer" || role === "AI Engineer" || role === "Admin" || role === "employee") {
+  const role = String(u.role || "").toLowerCase();
+  const accountRole = String(u.account_role || "").toLowerCase();
+
+  if (empId.startsWith("HDFC-") || role.includes("engineer") || role.includes("admin") || role === "employee") {
     return false;
   }
-  return u.account_role === "user" || u.role === "user";
+
+  if (empId.startsWith("CUST-") || role.includes("customer") || role === "user" || accountRole === "user") {
+    return true;
+  }
+
+  return accountRole === "user" || role.includes("user");
 }
 
 async function openUserProfileModal() {
@@ -839,8 +846,14 @@ async function openUserProfileModal() {
   const isCustomer = isCustomerAccount(u);
 
   const btnTemp = document.getElementById("prof-tab-temp");
+  const tabContainer = document.getElementById("prof-role-selector-bar");
+
   if (btnTemp) {
     btnTemp.style.display = isCustomer ? "none" : "inline-flex";
+  }
+
+  if (tabContainer) {
+    tabContainer.style.gridTemplateColumns = isCustomer ? "repeat(2, 1fr)" : "repeat(3, 1fr)";
   }
 
   const nameInput = document.getElementById("update-prof-fullname");

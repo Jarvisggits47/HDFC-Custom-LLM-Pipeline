@@ -1453,6 +1453,23 @@ tr.pending-dataset-row {
   background: var(--grad-blue); color: #fff; box-shadow: 0 4px 12px rgba(26,111,212,0.3);
 }
 
+.role-selector-bar {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px;
+  background: var(--bg-input); padding: 4px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); margin-bottom: 16px;
+}
+.role-sel-btn {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 8px 6px; font-size: 11.5px; font-weight: 600; text-align: center;
+  border: none; background: transparent; color: var(--text-secondary);
+  border-radius: 6px; cursor: pointer; transition: all var(--transition);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.role-sel-btn [data-lucide] { width: 13px; height: 13px; flex-shrink: 0; }
+.role-sel-btn.active {
+  background: var(--grad-blue); color: #fff; box-shadow: 0 2px 8px rgba(26,111,212,0.3);
+}
+
 .modal-overlay {
   position: fixed; inset: 0; z-index: 6000;
   background: rgba(4,8,16,0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
