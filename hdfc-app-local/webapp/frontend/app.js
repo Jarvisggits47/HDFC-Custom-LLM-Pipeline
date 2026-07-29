@@ -794,9 +794,48 @@ function copyRegBackupCode() {
 
 function openUserProfileModal() {
   const modal = document.getElementById("password-modal");
+  const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
+  const codeDisplay = document.getElementById("prof-backup-code-display");
+  if (codeDisplay) {
+    codeDisplay.textContent = u.backup_code || "SEC-894201";
+  }
+  switchProfileTab('pass');
   if (modal) {
     modal.style.display = "flex";
     lucide.createIcons({ nodes: [modal] });
+  }
+}
+
+function switchProfileTab(tab) {
+  const btnPass = document.getElementById("prof-tab-pass");
+  const btnRec = document.getElementById("prof-tab-recovery");
+  const panelPass = document.getElementById("prof-panel-pass");
+  const panelRec = document.getElementById("prof-panel-recovery");
+  const updateBtn = document.getElementById("prof-update-pass-btn");
+
+  if (tab === "recovery") {
+    if (btnRec) btnRec.classList.add("active");
+    if (btnPass) btnPass.classList.remove("active");
+    if (panelRec) panelRec.style.display = "block";
+    if (panelPass) panelPass.style.display = "none";
+    if (updateBtn) updateBtn.style.display = "none";
+  } else {
+    if (btnPass) btnPass.classList.add("active");
+    if (btnRec) btnRec.classList.remove("active");
+    if (panelPass) panelPass.style.display = "block";
+    if (panelRec) panelRec.style.display = "none";
+    if (updateBtn) updateBtn.style.display = "inline-flex";
+  }
+}
+
+function copyProfBackupCode() {
+  const code = document.getElementById("prof-backup-code-display")?.textContent.trim() || "";
+  if (code) {
+    navigator.clipboard.writeText(code).then(() => {
+      showToast(`Copied recovery code ${code} to clipboard!`, "ok");
+    }).catch(() => {
+      showToast(`Recovery Code: ${code}`, "info");
+    });
   }
 }
 
@@ -2882,6 +2921,7 @@ function bootApp(forceReset = false) {
     switchTab("playground");
     renderDeployments();
   } else {
+    switchTab("overview");
     refreshAll();
   }
 

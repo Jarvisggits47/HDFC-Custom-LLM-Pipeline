@@ -1041,26 +1041,27 @@ def register_employee(payload: schemas.EmployeeRegisterRequest, db: Session = De
 
 @app.post("/api/auth/reset-password", response_model=schemas.EmployeeOut)
 def reset_password(payload: schemas.EmployeePasswordResetRequest, db: Session = Depends(get_db)):
-    raw_id = payload.employee_id.strip().upper() if payload.employee_id else ""
+    raw_id = payload.employee_id.strip() if payload.employee_id else ""
     raw_email = payload.email.strip() if payload.email else ""
     raw_code = payload.backup_code.strip().upper() if payload.backup_code else ""
-    
+
+    search_term = raw_id or raw_email
+    if not search_term:
+        raise HTTPException(400, "Please provide your Account ID or Registered Email.")
+
     emp = db.query(models.Employee).filter(
-        (models.Employee.employee_id == raw_id) |
-        (models.Employee.email.ilike(raw_email))
+        (models.Employee.employee_id.ilike(search_term)) |
+        (models.Employee.email.ilike(search_term))
     ).first()
 
     if not emp:
-        raise HTTPException(404, f"Account matching '{payload.employee_id or payload.email}' not found.")
+        raise HTTPException(404, f"Account matching '{search_term}' not found. Please check your Customer ID or Email.")
 
     if raw_code:
         if not emp.backup_code or emp.backup_code.strip().upper() != raw_code:
-            raise HTTPException(400, "Invalid Backup Recovery Code. Please verify your 6-digit recovery code.")
+            raise HTTPException(400, f"Invalid Backup Recovery Code for '{emp.email}'. Please verify your 6-digit recovery code.")
 
     emp.password = payload.new_password
-    if payload.email:
-        emp.email = payload.email.strip()
-
     db.commit()
     db.refresh(emp)
     return emp
