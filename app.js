@@ -1075,58 +1075,47 @@ async function renderActiveSessionsList() {
   const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
   const currentToken = u.sessionToken || "sess-master-primary";
 
-  const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   const masterSession = {
     id: "master-primary-sess",
-    device: `${isMobile ? "Safari/Chrome on Mobile Device" : "Chrome on Windows 11"} (Master Primary — ${u.name || "Abhi"})`,
-    icon: isMobile ? "smartphone" : "laptop",
-    ip: "127.0.0.1 (Local Workstation)",
-    auth_type: "Master Password Login",
-    token: currentToken,
-    is_master: true,
-    status: "active"
+    device_info: `Chrome on Windows 11 (Master Primary — ${u.name || "Abhi"})`,
+    ip_address: "127.0.0.1 (Local Workstation)",
+    login_type: "master",
+    token: currentToken
   };
 
-  let activeList = [masterSession];
+  let sessionsList = [masterSession];
 
   try {
-    const apiSessions = await api("/auth/active-sessions");
-    if (Array.isArray(apiSessions) && apiSessions.length > 0) {
-      apiSessions.forEach(s => {
-        if (!s.is_master && s.status === "active" && !activeList.some(item => item.id === s.id || item.token === s.token)) {
-          activeList.push(s);
+    const apiRes = await api("/auth/active-sessions");
+    if (Array.isArray(apiRes) && apiRes.length > 0) {
+      apiRes.forEach(s => {
+        if (!s.is_master && s.status === "active" && !sessionsList.some(item => item.id === s.id || item.token === s.token)) {
+          sessionsList.push(s);
         }
       });
     }
   } catch (err) {
-    console.warn("Backend active-sessions sync fallback:", err);
+    console.warn("Active sessions offline fallback:", err);
   }
 
-  const globalSessions = JSON.parse(localStorage.getItem("hdfc_global_temp_sessions") || "[]");
-  globalSessions.forEach(s => {
-    if (s && s.status === "active" && !activeList.some(item => item.id === s.id || item.token === s.token)) {
-      activeList.push(s);
-    }
-  });
-
-  container.innerHTML = activeList.map(s => {
-    const isMaster = s.is_master || s.id === "master-primary-sess";
+  container.innerHTML = sessionsList.map(s => {
+    const isMaster = s.login_type === "master" || s.is_master || s.id === "master-primary-sess";
     return `
-      <div id="sess-row-${s.id}" style="background:var(--bg-card-sub);border:1px solid var(--border-light);border-radius:8px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;transition:all 0.3s ease">
+      <div id="sess-row-${s.id || s.token}" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1px solid var(--border-light);background:var(--bg-card-sub);border-radius:8px;margin-bottom:8px">
         <div>
           <div style="font-size:12px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:6px">
-            <i data-lucide="${isMaster ? "shield-check" : (s.icon || "smartphone")}" style="width:14px;height:14px;color:${isMaster ? "var(--ok)" : "var(--blue)"}"></i>
-            ${esc(s.device)}
+            <i data-lucide="${isMaster ? "shield-check" : "smartphone"}" style="width:14px;height:14px;color:${isMaster ? "var(--ok)" : "var(--blue)"}"></i>
+            ${esc(s.device_info || s.device || "Active Session")}
           </div>
           <div style="font-size:10.5px;color:var(--text-muted);margin-top:3px">
-            <span style="color:var(--text-secondary)">${esc(s.auth_type)}</span> · IP: ${esc(s.ip)} · Token: ${esc(String(s.token).slice(0, 14))}…
+            IP: ${esc(s.ip_address || s.ip || "127.0.0.1")} · Token: ${esc(String(s.token || s.id).slice(0, 14))}…
           </div>
         </div>
         <div>
           ${isMaster ? `
-            <span class="badge ok" style="font-size:10px"><i data-lucide="lock" style="width:10px;height:10px;margin-right:2px"></i> Protected Master</span>
+            <span class="badge ok" style="font-size:10px"><i data-lucide="lock" style="width:10px;height:10px;margin-right:2px"></i> Master Account</span>
           ` : `
-            <button type="button" class="btn-secondary btn-sm" style="font-size:10.5px;color:var(--danger);border-color:rgba(239,68,68,0.4);padding:4px 9px" onclick="killActiveSession('${esc(s.id)}')">
+            <button type="button" class="btn-secondary btn-sm" style="font-size:10.5px;color:var(--danger);border-color:rgba(239,68,68,0.4);padding:4px 9px" onclick="terminateSession('${esc(s.id || s.token)}')">
               <i data-lucide="power" style="width:11px;height:11px;margin-right:3px"></i> Kill Session
             </button>
           `}
@@ -1138,34 +1127,35 @@ async function renderActiveSessionsList() {
   lucide.createIcons({ nodes: [container] });
 }
 
-function killActiveSession(sessionId) {
+async function terminateSession(sessionId) {
   if (sessionId === "master-primary-sess") {
     showToast("⚠️ Master Primary Session is protected and cannot be killed.", "warn");
     return;
   }
 
-  const globalSessions = JSON.parse(localStorage.getItem("hdfc_global_temp_sessions") || "[]");
-  const filtered = globalSessions.filter(s => s.id !== sessionId && s.token !== sessionId);
-  localStorage.setItem("hdfc_global_temp_sessions", JSON.stringify(filtered));
+  try {
+    await api(`/auth/terminate-session/${sessionId}`, { method: "POST" });
+  } catch (err) {
+    console.warn("Backend terminate-session error:", err);
+  }
 
-  sessionStorage.removeItem("hdfc_active_temp_session");
+  localStorage.removeItem("hdfc_global_temp_sessions");
   localStorage.removeItem("hdfc_temp_passcode");
   localStorage.removeItem("hdfc_temp_passcodes_list");
   localStorage.removeItem("hdfc_terminated_sessions");
 
-  api(`/auth/terminate-session/${sessionId}`, { method: "POST" }).catch(() => {});
-
   const el = document.getElementById(`sess-row-${sessionId}`);
   if (el) {
+    el.style.transition = "all 0.3s ease";
     el.style.opacity = "0";
     el.style.transform = "translateX(20px)";
     setTimeout(() => {
       el.remove();
-      showToast("🚫 Session terminated instantly.", "ok");
+      showToast("🚫 Session terminated remotely.", "ok");
     }, 250);
   } else {
     renderActiveSessionsList();
-    showToast("🚫 Session terminated instantly.", "ok");
+    showToast("🚫 Session terminated remotely.", "ok");
   }
 }
 
@@ -1179,7 +1169,7 @@ async function clearStaleSessions() {
   localStorage.removeItem("hdfc_temp_passcode");
   localStorage.removeItem("hdfc_temp_passcodes_list");
   localStorage.removeItem("hdfc_terminated_sessions");
-  showToast("🧹 Cleared all stale session history.", "ok");
+  showToast("🧹 Cleared stale session history.", "ok");
   renderActiveSessionsList();
 }
 
