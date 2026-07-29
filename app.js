@@ -845,19 +845,24 @@ async function openUserProfileModal() {
   let u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
   const isCustomer = isCustomerAccount(u);
 
+  const btnRec = document.getElementById("prof-tab-recovery");
   const btnTemp = document.getElementById("prof-tab-temp");
+  const panelRec = document.getElementById("prof-panel-recovery");
   const panelTemp = document.getElementById("prof-panel-temp");
   const tabContainer = document.getElementById("prof-role-selector-bar");
 
+  if (btnRec) {
+    btnRec.style.display = isCustomer ? "inline-flex" : "none";
+  }
   if (btnTemp) {
     btnTemp.style.display = isCustomer ? "none" : "inline-flex";
   }
-  if (panelTemp && isCustomer) {
-    panelTemp.style.display = "none";
-  }
+
+  if (panelRec && !isCustomer) panelRec.style.display = "none";
+  if (panelTemp && isCustomer) panelTemp.style.display = "none";
 
   if (tabContainer) {
-    tabContainer.style.gridTemplateColumns = isCustomer ? "repeat(2, 1fr)" : "repeat(3, 1fr)";
+    tabContainer.style.gridTemplateColumns = "repeat(2, 1fr)";
   }
 
   const nameInput = document.getElementById("update-prof-fullname");
