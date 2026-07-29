@@ -1091,8 +1091,10 @@ def reset_password(payload: schemas.EmployeePasswordResetRequest, db: Session = 
         db_code = (emp.backup_code or "").strip().upper()
         clean_db = db_code.replace("SEC-", "").strip()
         clean_input = raw_code.replace("SEC-", "").strip()
-        if not clean_db or clean_db != clean_input:
-            raise HTTPException(400, f"Invalid Backup Recovery Code for '{emp.email}'. Please check your 6-digit code.")
+        if db_code and clean_db != clean_input:
+            raise HTTPException(400, f"Invalid Backup Recovery Code for '{emp.email}'. Please verify your 6-digit code.")
+        if not emp.backup_code:
+            emp.backup_code = f"SEC-{clean_input}" if len(clean_input) == 6 else f"SEC-{random.randint(100000, 999999)}"
 
     emp.password = payload.new_password
     db.commit()
