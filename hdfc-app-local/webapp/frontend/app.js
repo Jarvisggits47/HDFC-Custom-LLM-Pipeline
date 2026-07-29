@@ -354,6 +354,8 @@ function showApp() {
 
   if (isCustomer) {
     switchTab("playground");
+  } else {
+    switchTab("overview");
   }
 }
 
@@ -792,13 +794,28 @@ function copyRegBackupCode() {
   }
 }
 
-function openUserProfileModal() {
+async function openUserProfileModal() {
   const modal = document.getElementById("password-modal");
-  const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
+  let u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
   const codeDisplay = document.getElementById("prof-backup-code-display");
+
   if (codeDisplay) {
-    codeDisplay.textContent = u.backup_code || "SEC-894201";
+    codeDisplay.textContent = u.backup_code || "Loading key...";
   }
+
+  // Fetch updated backup_code if missing from session
+  if (u.empId && !u.backup_code) {
+    try {
+      const emps = await api("/auth/employees");
+      const me = emps.find(e => e.employee_id === u.empId || e.email === u.email);
+      if (me && me.backup_code) {
+        u.backup_code = me.backup_code;
+        sessionStorage.setItem(USER_KEY, JSON.stringify(u));
+        if (codeDisplay) codeDisplay.textContent = me.backup_code;
+      }
+    } catch (_) { }
+  }
+
   switchProfileTab('pass');
   if (modal) {
     modal.style.display = "flex";
@@ -1025,7 +1042,7 @@ if (loginForm) {
         });
 
         const accountRole = document.getElementById("login-account-role")?.value || _currentAuthRole || "employee";
-        const user = { empId: emp.employee_id, name: emp.full_name, role: emp.role, account_role: accountRole, email: emp.email, loginTime: Date.now() };
+        const user = { empId: emp.employee_id, name: emp.full_name, role: emp.role, account_role: accountRole, email: emp.email, backup_code: emp.backup_code, loginTime: Date.now() };
         sessionStorage.setItem(USER_KEY, JSON.stringify(user));
         resetUserSession();
         showApp();
