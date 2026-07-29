@@ -804,20 +804,31 @@ async function openUserProfileModal() {
     btnTemp.style.display = isCustomer ? "none" : "inline-flex";
   }
 
+  const nameInput = document.getElementById("update-prof-fullname");
+  if (nameInput) {
+    nameInput.value = u.name || "";
+  }
+
   const codeDisplay = document.getElementById("prof-backup-code-display");
   if (codeDisplay) {
     codeDisplay.textContent = u.backup_code || "Loading key...";
   }
 
-  // Fetch updated backup_code if missing from session
-  if (u.empId && !u.backup_code) {
+  // Fetch updated backup_code & profile from backend
+  if (u.empId || u.email) {
     try {
       const emps = await api("/auth/employees");
       const me = emps.find(e => e.employee_id === u.empId || e.email === u.email);
-      if (me && me.backup_code) {
-        u.backup_code = me.backup_code;
+      if (me) {
+        if (me.backup_code) {
+          u.backup_code = me.backup_code;
+          if (codeDisplay) codeDisplay.textContent = me.backup_code;
+        }
+        if (me.full_name) {
+          u.name = me.full_name;
+          if (nameInput) nameInput.value = me.full_name;
+        }
         sessionStorage.setItem(USER_KEY, JSON.stringify(u));
-        if (codeDisplay) codeDisplay.textContent = me.backup_code;
       }
     } catch (_) { }
   }
@@ -885,35 +896,52 @@ function closePasswordModal() {
   if (modal) modal.style.display = "none";
 }
 
-function submitUpdatePassword() {
+async function submitUpdatePassword() {
+  const fullName = document.getElementById("update-prof-fullname")?.value.trim() || "";
   const currPass = document.getElementById("update-curr-pass")?.value || "";
   const newPass = document.getElementById("update-new-pass")?.value || "";
   const confirmPass = document.getElementById("update-confirm-pass")?.value || "";
 
-  if (!currPass || !newPass || !confirmPass) {
-    showToast("Please fill in Current Password, New Password, and Confirm New Password.", "warn");
-    return;
-  }
-
-  if (newPass !== confirmPass) {
+  if (newPass && newPass !== confirmPass) {
     showToast("New Password and Confirm New Password do not match.", "bad");
     return;
   }
 
-  const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
-  const empId = u.empId || "HDFC-AI-101";
-  const email = u.email || "jarvisanand85@gmail.com";
+  if (newPass && !currPass) {
+    showToast("Please enter your Current Password to change password.", "warn");
+    return;
+  }
 
-  api("/auth/reset-password", {
-    method: "POST",
-    body: JSON.stringify({ employee_id: empId, email, new_password: newPass })
-  }).then(emp => {
+  const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
+  const empId = u.empId || u.email;
+
+  if (!empId) {
+    showToast("Session expired. Please sign in again.", "bad");
+    return;
+  }
+
+  try {
+    const updatedEmp = await api("/auth/update-profile", {
+      method: "POST",
+      body: JSON.stringify({
+        employee_id: empId,
+        full_name: fullName,
+        current_password: currPass || null,
+        new_password: newPass || null
+      })
+    });
+
+    u.name = updatedEmp.full_name;
+    if (updatedEmp.backup_code) u.backup_code = updatedEmp.backup_code;
+    sessionStorage.setItem(USER_KEY, JSON.stringify(u));
+    updateSidebarUser();
+
     closePasswordModal();
-    logUserAction("PASSWORD_UPDATE", `User updated password for ${empId}`);
-    showToast("✅ Password updated in PostgreSQL database successfully.", "ok");
-  }).catch(err => {
+    logUserAction("PROFILE_UPDATE", `Updated profile for ${empId}`);
+    showToast("✅ Profile updated successfully!", "ok");
+  } catch (err) {
     showToast(`❌ Update Failed: ${err.message}`, "bad");
-  });
+  }
 }
 
 function updateSidebarUser() {

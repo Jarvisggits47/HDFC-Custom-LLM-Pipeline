@@ -196,6 +196,13 @@ class EmployeePasswordResetRequest(BaseModel):
     backup_code: Optional[str] = None
 
 
+class EmployeeProfileUpdateRequest(BaseModel):
+    employee_id: str
+    full_name: Optional[str] = None
+    current_password: Optional[str] = None
+    new_password: Optional[str] = None
+
+
 class EmployeeOut(BaseModel):
     id: str
     employee_id: str

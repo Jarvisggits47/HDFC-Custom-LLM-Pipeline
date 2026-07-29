@@ -1006,17 +1006,21 @@ def login_employee(payload: schemas.EmployeeLoginRequest, db: Session = Depends(
 
 @app.post("/api/auth/register", response_model=schemas.EmployeeOut)
 def register_employee(payload: schemas.EmployeeRegisterRequest, db: Session = Depends(get_db)):
-    raw_id = payload.employee_id.strip().upper()
-    if not raw_id.startswith("HDFC-"):
+    raw_id = payload.employee_id.strip()
+    if not raw_id.startswith("HDFC-") and not raw_id.startswith("CUST-"):
         parts = raw_id.replace("-", " ").split()
         if len(parts) == 2:
             raw_id = f"HDFC-{parts[0]}-{parts[1]}"
 
     backup_code = f"SEC-{random.randint(100000, 999999)}"
-    emp = db.query(models.Employee).filter(models.Employee.employee_id == raw_id).first()
+    emp = db.query(models.Employee).filter(
+        (models.Employee.employee_id == raw_id) |
+        (models.Employee.email.ilike(payload.email.strip()))
+    ).first()
+
     if emp:
         emp.full_name = payload.full_name
-        emp.email = payload.email
+        emp.email = payload.email.strip()
         emp.role = payload.role
         emp.password = payload.password
         if not emp.backup_code:
@@ -1026,13 +1030,39 @@ def register_employee(payload: schemas.EmployeeRegisterRequest, db: Session = De
             id=f"emp-{uuid.uuid4().hex[:8]}",
             employee_id=raw_id,
             full_name=payload.full_name,
-            email=payload.email,
+            email=payload.email.strip(),
             role=payload.role,
             department="Enterprise AI" if payload.role != "user" else "Banking Customer",
             password=payload.password,
             backup_code=backup_code
         )
         db.add(emp)
+
+    db.commit()
+    db.refresh(emp)
+    return emp
+
+
+@app.post("/api/auth/update-profile", response_model=schemas.EmployeeOut)
+def update_profile(payload: schemas.EmployeeProfileUpdateRequest, db: Session = Depends(get_db)):
+    emp = db.query(models.Employee).filter(
+        (models.Employee.employee_id.ilike(payload.employee_id.strip())) |
+        (models.Employee.email.ilike(payload.employee_id.strip()))
+    ).first()
+
+    if not emp:
+        raise HTTPException(404, "Account not found.")
+
+    if payload.full_name and payload.full_name.strip():
+        emp.full_name = payload.full_name.strip()
+
+    if payload.new_password:
+        if not payload.current_password or emp.password != payload.current_password:
+            raise HTTPException(400, "Current password is incorrect.")
+        emp.password = payload.new_password
+
+    if not emp.backup_code:
+        emp.backup_code = f"SEC-{random.randint(100000, 999999)}"
 
     db.commit()
     db.refresh(emp)
