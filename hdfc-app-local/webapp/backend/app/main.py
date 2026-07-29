@@ -1184,8 +1184,22 @@ def login_temp_passcode_endpoint(payload: dict, request: Request, db: Session = 
     device_label = "Safari/Chrome on Mobile Device" if is_mobile else "Secondary Browser / Workstation"
     device_icon = "smartphone" if is_mobile else "laptop"
 
+    sess_id = f"sess-temp-{random.randint(100,999)}"
+    db_sess = models.UserSession(
+        id=sess_id,
+        session_token=session_token,
+        employee_id=emp_id,
+        login_type="temp",
+        device_info=f"{device_label} (Temp Passcode Override)",
+        ip_address=client_ip,
+        status="active",
+        expires_at=datetime.datetime.utcnow() + datetime.timedelta(minutes=15)
+    )
+    db.add(db_sess)
+    db.commit()
+
     temp_sess = {
-        "id": f"sess-temp-{random.randint(100,999)}",
+        "id": sess_id,
         "type": "temp",
         "device": device_label,
         "icon": device_icon,
