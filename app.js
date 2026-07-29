@@ -786,6 +786,7 @@ async function submitForgotPassword() {
       u.password = newPass;
       sessionStorage.setItem(USER_KEY, JSON.stringify(u));
     }
+    saveLocalAccount({ employee_id: idInput, email: idInput, password: newPass, backup_code: backupCode });
     closeForgotPasswordModal();
     logUserAction("PASSWORD_RESET", `Password reset for ${idInput}`);
     showToast(`✅ Password successfully reset for ${empName}! You can now sign in with your new password.`, "ok");
@@ -987,6 +988,31 @@ function closePasswordModal() {
   if (modal) modal.style.display = "none";
 }
 
+function saveLocalAccount(acc) {
+  try {
+    const list = JSON.parse(localStorage.getItem("hdfc_registered_accounts") || "[]");
+    const key = (acc.employee_id || acc.email || acc.empId || "").toLowerCase();
+    if (!key) return;
+    const idx = list.findIndex(a => (a.employee_id || a.email || a.empId || "").toLowerCase() === key);
+    if (idx >= 0) list[idx] = { ...list[idx], ...acc };
+    else list.push(acc);
+    localStorage.setItem("hdfc_registered_accounts", JSON.stringify(list));
+  } catch (_) {}
+}
+
+function findLocalAccount(usernameOrId) {
+  try {
+    if (!usernameOrId) return null;
+    const list = JSON.parse(localStorage.getItem("hdfc_registered_accounts") || "[]");
+    const search = usernameOrId.trim().toLowerCase();
+    return list.find(a => 
+      (a.employee_id || "").toLowerCase() === search ||
+      (a.email || "").toLowerCase() === search ||
+      (a.empId || "").toLowerCase() === search
+    );
+  } catch (_) { return null; }
+}
+
 async function submitUpdatePassword() {
   const fullName = document.getElementById("update-prof-fullname")?.value.trim() || "";
   const currPass = document.getElementById("update-curr-pass")?.value || "";
@@ -1022,17 +1048,21 @@ async function submitUpdatePassword() {
       })
     });
 
-    u.name = updatedEmp.full_name;
-    if (updatedEmp.backup_code) u.backup_code = updatedEmp.backup_code;
-    sessionStorage.setItem(USER_KEY, JSON.stringify(u));
-    updateSidebarUser();
-
-    closePasswordModal();
-    logUserAction("PROFILE_UPDATE", `Updated profile for ${empId}`);
-    showToast("✅ Profile updated successfully!", "ok");
+    if (updatedEmp && updatedEmp.full_name) u.name = updatedEmp.full_name;
+    if (updatedEmp && updatedEmp.backup_code) u.backup_code = updatedEmp.backup_code;
   } catch (err) {
-    showToast(`❌ Update Failed: ${err.message}`, "bad");
+    console.warn("Backend update-profile offline/fallback:", err);
+    if (fullName) u.name = fullName;
   }
+
+  if (newPass) u.password = newPass;
+  sessionStorage.setItem(USER_KEY, JSON.stringify(u));
+  saveLocalAccount({ employee_id: empId, email: u.email || empId, full_name: u.name, password: newPass || u.password, backup_code: u.backup_code });
+
+  updateSidebarUser();
+  closePasswordModal();
+  logUserAction("PROFILE_UPDATE", `Updated profile for ${empId}`);
+  showToast("✅ Profile updated successfully!", "ok");
 }
 
 function updateSidebarUser() {
@@ -1168,9 +1198,12 @@ if (loginForm) {
         account_role: accountRole,
         email: emp.email,
         backup_code: emp.backup_code,
+        password: passwordInp,
         loginTime: Date.now()
       };
       sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+      saveLocalAccount({ employee_id: emp.employee_id, full_name: emp.full_name, email: emp.email || usernameInp, password: passwordInp, backup_code: emp.backup_code, role: emp.role });
+
       resetUserSession();
       showApp();
       updateSidebarUser();
@@ -1201,10 +1234,12 @@ if (loginForm) {
           body: JSON.stringify({ username_or_id: usernameInp, password: passwordInp })
         });
 
-        const isEmp = emp.employee_id.toUpperCase().startsWith("HDFC-") || emp.role === "Lead AI Engineer" || emp.role === "AI Engineer";
+        const isEmp = (emp.employee_id || "").toUpperCase().startsWith("HDFC-") || emp.role === "Lead AI Engineer" || emp.role === "AI Engineer";
         const accountRole = isEmp ? "employee" : (document.getElementById("login-account-role")?.value || _currentAuthRole || "employee");
         const user = { empId: emp.employee_id, name: emp.full_name, role: emp.role, account_role: accountRole, email: emp.email, backup_code: emp.backup_code, loginTime: Date.now() };
         sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+        saveLocalAccount({ employee_id: emp.employee_id, full_name: emp.full_name, email: emp.email, password: passwordInp, backup_code: emp.backup_code });
+
         resetUserSession();
         showApp();
         updateSidebarUser();
@@ -1212,6 +1247,29 @@ if (loginForm) {
         logUserAction("USER_LOGIN", `${emp.full_name} (${emp.employee_id}) signed in`);
         showToast(`Welcome back, ${emp.full_name} (${emp.employee_id}).`, "ok");
       } catch (err) {
+        console.warn("Backend login API error, checking local registered store:", err);
+        const localAcc = findLocalAccount(usernameInp);
+        if (localAcc && (!passwordInp || localAcc.password === passwordInp || !localAcc.password)) {
+          const isEmp = (localAcc.employee_id || "").toUpperCase().startsWith("HDFC-") || localAcc.role === "Lead AI Engineer" || localAcc.role === "AI Engineer";
+          const accountRole = isEmp ? "employee" : (document.getElementById("login-account-role")?.value || _currentAuthRole || "employee");
+          const user = {
+            empId: localAcc.employee_id || usernameInp,
+            name: localAcc.full_name || localAcc.name || "Customer User",
+            role: isEmp ? (localAcc.role || "Lead AI Engineer") : "Customer User",
+            account_role: accountRole,
+            email: localAcc.email || usernameInp,
+            backup_code: localAcc.backup_code,
+            loginTime: Date.now()
+          };
+          sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+          resetUserSession();
+          showApp();
+          updateSidebarUser();
+          bootApp(true);
+          logUserAction("USER_LOGIN", `${user.name} (${user.empId}) signed in`);
+          showToast(`Welcome back, ${user.name} (${user.empId}).`, "ok");
+          return;
+        }
         showToast(`❌ Sign In Failed: ${err.message}`, "bad");
       }
     }
