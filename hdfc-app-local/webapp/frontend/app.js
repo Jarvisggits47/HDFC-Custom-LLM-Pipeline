@@ -670,45 +670,71 @@ function closeTempSignInModal() {
 
 async function submitTempPasscodeSignIn() {
   const username = document.getElementById("temp-login-username")?.value.trim() || "";
-  const passcode = document.getElementById("temp-login-passcode")?.value.trim().toUpperCase() || "";
+  const rawPasscode = document.getElementById("temp-login-passcode")?.value.trim().toUpperCase() || "";
 
-  if (!username || !passcode) {
+  if (!username || !rawPasscode) {
     showToast("Please enter both Corporate Email/ID and Temporary Passcode.", "warn");
     return;
   }
 
+  const passcodeClean = rawPasscode.replace(/^TMP-/, "").trim();
+  const list = JSON.parse(localStorage.getItem("hdfc_temp_passcodes_list") || "[]");
+  const singleStored = JSON.parse(localStorage.getItem("hdfc_temp_passcode") || "null");
+  if (singleStored) list.push(singleStored);
+
+  const now = Date.now();
+  const match = list.find(item => {
+    if (!item) return false;
+    const itemCodeClean = String(item.code || "").replace(/^TMP-/, "").trim();
+    const rawCodeClean = String(item.rawCode || "").replace(/^TMP-/, "").trim();
+    const isCodeMatch = (itemCodeClean === passcodeClean) || (rawCodeClean === passcodeClean);
+    const isNotExpired = now < (item.expiresAt || 0);
+    return isCodeMatch && isNotExpired;
+  });
+
   let emp = null;
-  try {
-    emp = await api("/auth/login-temp-passcode", {
-      method: "POST",
-      body: JSON.stringify({ username_or_email: username, passcode })
-    });
-  } catch (err) {
-    console.warn("Backend temp passcode login error, checking local store:", err);
-    const stored = JSON.parse(localStorage.getItem("hdfc_temp_passcode") || "null");
-    if (stored && stored.code === passcode && Date.now() < stored.expiresAt) {
-      emp = {
-        employee_id: stored.user?.empId || username,
-        full_name: stored.user?.name || "HDFC Officer",
-        role: stored.user?.role || "Lead AI Engineer",
-        email: stored.user?.email || username,
-        session_token: `sess-${Math.random().toString(36).substring(2)}`
-      };
-    } else {
-      showToast(`❌ Temp Login Failed: Invalid or expired Temporary Passcode.`, "bad");
-      return;
+  if (match) {
+    emp = {
+      employee_id: match.empId || match.user?.empId || username,
+      full_name: match.name || match.user?.name || "HDFC Officer",
+      role: match.role || match.user?.role || "Lead AI Engineer",
+      email: match.email || match.user?.email || username,
+      session_token: `sess-${Math.random().toString(36).substring(2)}`
+    };
+  } else {
+    try {
+      emp = await api("/auth/login-temp-passcode", {
+        method: "POST",
+        body: JSON.stringify({ username_or_email: username, passcode: rawPasscode })
+      });
+    } catch (err) {
+      console.warn("Temp passcode backend error:", err);
     }
   }
 
-  const user = { empId: emp.employee_id, name: emp.full_name, role: emp.role, account_role: "employee", email: emp.email, sessionToken: emp.session_token, loginTime: Date.now() };
+  if (!emp) {
+    showToast(`❌ Temp Login Failed: Invalid or expired Temporary Passcode.`, "bad");
+    return;
+  }
+
+  const user = {
+    empId: emp.employee_id || username,
+    name: emp.full_name || "HDFC Officer",
+    role: emp.role || "Lead AI Engineer",
+    account_role: "employee",
+    email: emp.email || username,
+    sessionToken: emp.session_token || `sess-${Math.random().toString(36).substring(2)}`,
+    loginTime: Date.now()
+  };
+
   sessionStorage.setItem(USER_KEY, JSON.stringify(user));
   closeTempSignInModal();
   resetUserSession();
   showApp();
   updateSidebarUser();
   bootApp(true);
-  logUserAction("TEMP_LOGIN", `${emp.full_name} signed in via Temp Passcode`);
-  showToast(`✅ Signed in via Temp Passcode! Welcome, ${emp.full_name} (${emp.employee_id}).`, "ok");
+  logUserAction("TEMP_LOGIN", `${user.name} signed in via Temp Passcode`);
+  showToast(`✅ Signed in via Temp Passcode! Welcome back, ${user.name} (${user.empId}).`, "ok");
 }
 
 let _currentForgotRole = "employee";
@@ -981,19 +1007,29 @@ function switchProfileTab(tab) {
 }
 
 function generateTempPasscode() {
-  const code = `TMP-${Math.floor(100000 + Math.random() * 900000)}`;
+  const rawNum = Math.floor(100000 + Math.random() * 900000);
+  const code = `TMP-${rawNum}`;
   const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
   const disp = document.getElementById("temp-passcode-display");
   if (disp) disp.textContent = `${code} (Expires in 15m)`;
 
-  const activePasscodeObj = {
+  const itemObj = {
     code: code,
+    rawCode: String(rawNum),
+    empId: u.empId || u.employee_id || "",
+    email: u.email || "",
+    name: u.name || "HDFC Officer",
+    role: u.role || "Lead AI Engineer",
     user: u,
     expiresAt: Date.now() + 15 * 60 * 1000
   };
-  localStorage.setItem("hdfc_temp_passcode", JSON.stringify(activePasscodeObj));
-  api("/auth/generate-temp-passcode", { method: "POST" }).catch(() => {});
 
+  const list = JSON.parse(localStorage.getItem("hdfc_temp_passcodes_list") || "[]");
+  list.push(itemObj);
+  localStorage.setItem("hdfc_temp_passcodes_list", JSON.stringify(list));
+  localStorage.setItem("hdfc_temp_passcode", JSON.stringify(itemObj));
+
+  api("/auth/generate-temp-passcode", { method: "POST" }).catch(() => {});
   showToast(`Generated Temp Passcode: ${code}`, "ok");
 }
 
