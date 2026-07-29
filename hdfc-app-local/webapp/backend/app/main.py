@@ -1211,42 +1211,79 @@ def login_temp_passcode_endpoint(payload: dict, request: Request, db: Session = 
 
 
 @app.get("/api/auth/active-sessions")
-def get_active_sessions(request: Request):
-    emp_id = get_emp_id_from_req(request)
-    user_sessions = ACTIVE_SESSIONS_DB.get(emp_id, [])
+def get_active_sessions(request: Request, db: Session = Depends(get_db)):
+    emp_id = get_emp_id_from_req(request, db)
     
-    active_list = []
-    for s in reversed(user_sessions):
-        if s.get("status") == "active":
-            obj = dict(s)
-            obj["token"] = s.get("session_token") or s.get("token") or s.get("id")
-            active_list.append(obj)
+    db_sessions = db.query(models.UserSession).filter(
+        models.UserSession.employee_id == emp_id,
+        models.UserSession.status == "active",
+        models.UserSession.expires_at > datetime.utcnow(),
+    ).order_by(models.UserSession.created_at.desc()).all()
 
-    return active_list[:5]
+    out = []
+    for s in db_sessions:
+        out.append({
+            "id": s.id,
+            "session_token": s.session_token,
+            "token": s.session_token,
+            "employee_id": s.employee_id,
+            "login_type": s.login_type or ("master" if s.session_token == "sess-master-primary" else "temp"),
+            "device_info": s.device_info or "Active Session",
+            "device": s.device_info or "Active Session",
+            "ip_address": s.ip_address or "127.0.0.1",
+            "ip": s.ip_address or "127.0.0.1",
+            "is_master": (s.login_type == "master"),
+            "status": s.status,
+            "created_at": s.created_at.strftime("%H:%M:%S") if s.created_at else ""
+        })
+
+    if not out:
+        out.append({
+            "id": "master-primary-sess",
+            "session_token": "sess-master-primary",
+            "token": "sess-master-primary",
+            "employee_id": emp_id,
+            "login_type": "master",
+            "device_info": "Chrome on Windows 11 (Primary Master)",
+            "device": "Chrome on Windows 11 (Primary Master)",
+            "ip_address": "127.0.0.1 (Local Workstation)",
+            "ip": "127.0.0.1 (Local Workstation)",
+            "is_master": True,
+            "status": "active"
+        })
+
+    return out[:5]
 
 
 @app.post("/api/auth/clear-sessions")
-def clear_sessions_endpoint(request: Request):
-    emp_id = get_emp_id_from_req(request)
+def clear_sessions_endpoint(request: Request, db: Session = Depends(get_db)):
+    emp_id = get_emp_id_from_req(request, db)
+    db.query(models.UserSession).filter(
+        models.UserSession.employee_id == emp_id,
+        models.UserSession.login_type != "master"
+    ).update({"status": "terminated"}, synchronize_session=False)
+    db.commit()
+
     ACTIVE_SESSIONS_DB[emp_id] = []
     ACTIVE_SESSIONS_DB.clear()
-    return {"status": "ok", "message": "Cleared all stale sessions."}
+    return {"status": "ok", "message": "Cleared stale session history."}
 
 
 @app.post("/api/auth/terminate-session/{session_id}")
-def terminate_session_endpoint(session_id: str, request: Request):
-    if session_id == "master-primary-sess":
-        raise HTTPException(400, "Master Primary Session cannot be killed.")
+def terminate_session_endpoint(session_id: str, request: Request, db: Session = Depends(get_db)):
+    emp_id = get_emp_id_from_req(request, db)
+    
+    db.query(models.UserSession).filter(
+        (models.UserSession.id == session_id) | (models.UserSession.session_token == session_id),
+        models.UserSession.employee_id == emp_id,
+        models.UserSession.login_type != "master"
+    ).update({"status": "terminated"}, synchronize_session=False)
+    db.commit()
 
     for k, user_sessions in list(ACTIVE_SESSIONS_DB.items()):
-        new_list = []
-        for s in user_sessions:
-            if s.get("id") == session_id or s.get("token") == session_id or session_id in str(s.get("token")):
-                continue
-            new_list.append(s)
-        ACTIVE_SESSIONS_DB[k] = new_list
+        ACTIVE_SESSIONS_DB[k] = [s for s in user_sessions if s.get("id") != session_id and s.get("token") != session_id]
 
-    return {"status": "ok", "message": f"Terminated temporary session '{session_id}'."}
+    return {"status": "ok", "message": f"Terminated session '{session_id}'."}
 
 
 @app.get("/api/health")
