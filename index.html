@@ -1,11 +1,1068 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
-  <meta charset="UTF-8">
-  <meta http-equiv="refresh" content="0; url=./hdfc-app-local/webapp/frontend/">
-  <title>HDFC Custom LLM Pipeline</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HDFC Bank — Enterprise AI Factory</title>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<link rel="stylesheet" href="styles.css?v=49">
 </head>
 <body>
-  <p>Redirecting to <a href="./hdfc-app-local/webapp/frontend/">HDFC Custom LLM Pipeline</a>...</p>
+
+<!-- ============================================================= -->
+<!-- LOGIN SCREEN                                                   -->
+<!-- ============================================================= -->
+<div id="login-screen" class="login-screen">
+  <div class="login-grid-overlay"></div>
+  <div class="login-card">
+    <div class="login-brand">
+      <div class="brand-mark lg"><img src="hdfc-mark.svg" alt="HDFC Bank"></div>
+      <div class="login-brand-text">
+        <div class="login-title">HDFC Bank</div>
+        <div class="login-subtitle">Enterprise AI Factory</div>
+      </div>
+    </div>
+
+    <div class="login-tabs">
+      <button type="button" class="login-tab-btn active" id="tab-login-btn" onclick="switchAuthTab('login')">Sign In</button>
+      <button type="button" class="login-tab-btn" id="tab-register-btn" onclick="switchAuthTab('register')">Register Account</button>
+    </div>
+
+    <div class="login-sep"></div>
+
+    <form id="login-form" class="login-form" autocomplete="off">
+      <div class="field-group" id="account-type-group" style="margin-bottom:14px">
+        <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">SELECT ACCESS ROLE</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--bg-main);padding:4px;border-radius:6px;border:1px solid var(--border-light)">
+          <button type="button" id="role-btn-emp" class="btn-role-tab active" onclick="setAuthRole('employee')" style="padding:7px 10px;font-size:11px;font-weight:700;border-radius:4px;border:none;background:var(--blue);color:#fff;cursor:pointer">
+            <i data-lucide="briefcase" style="width:12px;height:12px;vertical-align:-1px"></i> Employee / Admin
+          </button>
+          <button type="button" id="role-btn-user" class="btn-role-tab" onclick="setAuthRole('user')" style="padding:7px 10px;font-size:11px;font-weight:700;border-radius:4px;border:none;background:transparent;color:var(--text-muted);cursor:pointer">
+            <i data-lucide="user" style="width:12px;height:12px;vertical-align:-1px"></i> Customer / User
+          </button>
+        </div>
+        <input type="hidden" id="login-account-role" value="employee">
+      </div>
+
+      <div class="float-field" id="reg-name-field" style="display:none">
+        <input id="login-fullname" type="text" placeholder=" " autocomplete="name">
+        <label for="login-fullname">Full Name</label>
+        <i data-lucide="user"></i>
+      </div>
+
+      <div class="float-field" id="reg-emp-field" style="display:none">
+        <input id="login-empid" type="text" placeholder=" " autocomplete="off">
+        <label for="login-empid">HDFC Unique Employee ID</label>
+        <i data-lucide="shield-check"></i>
+      </div>
+
+      <div class="float-field">
+        <input id="login-username" type="text" placeholder=" " autocomplete="username" required>
+        <label id="login-username-label" for="login-username">Username or Corporate Email</label>
+        <i data-lucide="mail"></i>
+      </div>
+
+      <div class="float-field" id="reg-role-field" style="display:none">
+        <select id="login-role" style="padding-left:36px">
+          <option value="AI Engineer">AI Engineer (Enterprise)</option>
+          <option value="Risk &amp; Compliance Officer">Risk &amp; Compliance Officer</option>
+          <option value="Security Auditor">Security &amp; Fraud Auditor</option>
+          <option value="System Administrator">System Administrator</option>
+        </select>
+        <i data-lucide="shield" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-muted)"></i>
+      </div>
+
+      <div class="float-field">
+        <input id="login-password" type="password" placeholder=" " autocomplete="current-password" required>
+        <label for="login-password">Password</label>
+        <button type="button" class="pw-toggle" id="pw-toggle" tabindex="-1" title="Show / hide">
+          <i data-lucide="eye"></i>
+        </button>
+      </div>
+
+      <div class="login-row">
+        <label class="check">
+          <input type="checkbox" id="remember-me" checked>
+          <span>Remember me</span>
+        </label>
+        <div>
+          <a href="#" class="forgot" id="temp-pass-link" style="color:var(--blue);margin-right:12px" onclick="openTempPasscodeSignIn(); return false"><i data-lucide="key" style="width:11px;height:11px;vertical-align:-1px"></i> Temp Passcode</a>
+          <a href="#" class="forgot" onclick="openForgotPasswordModal(); return false">Forgot password?</a>
+        </div>
+      </div>
+
+      <button type="submit" class="btn-login" id="login-btn">
+        <i data-lucide="lock"></i>
+        <span id="login-btn-text">Secure Login</span>
+      </button>
+    </form>
+
+    <div class="login-foot">
+      <i data-lucide="shield-check"></i>
+      <span>Protected by enterprise-grade encryption</span>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================= -->
+<!-- MAIN APPLICATION                                               -->
+<!-- ============================================================= -->
+<div id="key-banner" class="key-banner" style="display:none">
+  <i data-lucide="alert-triangle"></i>
+  <span>Local model could not be loaded — check server logs.</span>
+</div>
+
+<div class="app-shell" id="app-shell" style="display:none">
+
+  <!-- SIDEBAR (fixed, never scrolls) -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-mark"><img src="hdfc-mark.svg" alt="HDFC Bank"></div>
+      <div>
+        <div class="brand-name">HDFC Bank</div>
+        <div class="brand-sub">Enterprise AI Factory</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav" id="main-nav">
+      <button class="nav-item active" data-tab="overview">
+        <i data-lucide="layout-dashboard"></i><span>Dashboard</span>
+      </button>
+
+      <div class="nav-section-label">Data Pipeline</div>
+      <button class="nav-item" data-tab="datasets">
+        <i data-lucide="file-text"></i><span>Documents</span>
+      </button>
+      <button class="nav-item" data-tab="runs">
+        <i data-lucide="cpu"></i><span>AI Factory</span>
+      </button>
+
+      <div class="nav-section-label">Release Control</div>
+      <button class="nav-item" data-tab="evaluations">
+        <i data-lucide="shield-check"></i><span>Evaluation Gate</span>
+      </button>
+      <button class="nav-item" data-tab="registry">
+        <i data-lucide="library"></i><span>Model Registry</span>
+      </button>
+      <button class="nav-item" data-tab="deployments">
+        <i data-lucide="rocket"></i><span>Deployment</span>
+      </button>
+
+      <div class="nav-section-label">Operations</div>
+      <button class="nav-item" data-tab="playground">
+        <i data-lucide="message-square"></i><span>AI Playground</span>
+      </button>
+      <button class="nav-item" data-tab="monitoring">
+        <i data-lucide="bar-chart-2"></i><span>Monitoring</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-card" onclick="openUserProfileModal()" style="cursor:pointer" title="Click to view profile &amp; security settings">
+        <div class="user-avatar" id="user-avatar">A</div>
+        <div class="user-info">
+          <div class="user-name" id="user-name">AI Engineer</div>
+          <div class="user-role" id="user-role">Administrator</div>
+        </div>
+        <button class="user-logout" onclick="event.stopPropagation(); doLogout()" title="Logout"><i data-lucide="log-out"></i></button>
+      </div>
+      <div class="sidebar-status">
+        <span class="api-dot" id="api-dot"></span>
+        <span id="api-status-text" class="status-text">Checking…</span>
+        <button class="dark-toggle" id="dark-toggle" title="Toggle theme">
+          <i data-lucide="moon" id="dark-icon"></i>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT (only this scrolls) -->
+  <main class="main-content">
+
+    <!-- ========== DASHBOARD ========== -->
+    <section id="overview" class="tab">
+      <div class="hero">
+        <div class="hero-grid"></div>
+        <div class="hero-inner">
+          <div class="hero-left">
+            <div class="hero-eyebrow">Enterprise Banking AI Factory</div>
+            <h1 class="hero-title">Welcome back, <span id="hero-username">AI Engineer</span></h1>
+            <p class="hero-sub" id="hero-datetime"></p>
+          </div>
+          <div class="hero-right">
+            <span class="env-badge"><span class="env-dot"></span> Production</span>
+            <span class="hero-meta" id="last-updated"></span>
+            <button class="btn-secondary btn-sm" onclick="refreshAll()">
+              <i data-lucide="refresh-cw"></i> Refresh
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- KPI Cards -->
+      <div id="kpi-grid" class="kpi-grid"></div>
+
+      <!-- Pipeline Stepper -->
+      <div class="card stepper-card">
+        <div class="card-title"><i data-lucide="git-branch"></i> Pipeline Progress</div>
+        <div class="stepper-scroll">
+          <div id="pipeline-stepper" class="pipeline-stepper"></div>
+        </div>
+      </div>
+
+      <!-- 4-panel grid -->
+      <div class="dashboard-grid">
+        <div class="card" id="panel-health">
+          <div class="card-title"><i data-lucide="activity"></i> System Health</div>
+          <div id="health-rows"></div>
+        </div>
+        <div class="card" id="panel-eval">
+          <div class="card-title"><i data-lucide="shield-check"></i> Evaluation Gate</div>
+          <div id="eval-summary"></div>
+        </div>
+        <div class="card" id="panel-stats">
+          <div class="card-title"><i data-lucide="zap"></i> Inference Stats</div>
+          <div id="infer-stats"></div>
+        </div>
+        <div class="card" id="panel-activity">
+          <div class="card-title"><i data-lucide="clock"></i> Recent Activity</div>
+          <div id="activity-feed"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== DOCUMENTS ========== -->
+    <section id="datasets" class="tab">
+      <div class="hero compact">
+        <div class="hero-grid"></div>
+        <div class="hero-inner">
+          <div class="hero-left">
+            <div class="hero-eyebrow">Data Pipeline</div>
+            <h1 class="hero-title sm">Documents</h1>
+            <p class="hero-sub">Register dataset sources, upload policy documents, and approve for adapter runs.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="doc-summary-strip">
+        <div class="stat-tile" style="--c:var(--blue)">
+          <div class="stat-tile-top"><span class="stat-tile-label">Total Datasets</span><i data-lucide="database"></i></div>
+          <div class="stat-tile-value" id="doc-stat-total">0</div>
+          <div class="stat-bar"><span id="doc-bar-total" style="width:0%"></span></div>
+        </div>
+        <div class="stat-tile" style="--c:var(--ok)">
+          <div class="stat-tile-top"><span class="stat-tile-label">Approved</span><i data-lucide="check-circle"></i></div>
+          <div class="stat-tile-value" id="doc-stat-approved">0</div>
+          <div class="stat-bar"><span id="doc-bar-approved" style="width:0%"></span></div>
+        </div>
+        <div class="stat-tile clickable-stat-tile" style="--c:var(--warn);cursor:pointer" onclick="filterPendingDatasets()" title="Click to view datasets waiting for approval">
+          <div class="stat-tile-top">
+            <span class="stat-tile-label" style="display:flex;align-items:center"><span class="yellow-pulse-dot"></span> Pending Review</span>
+            <i data-lucide="clock" style="color:var(--warn)"></i>
+          </div>
+          <div class="stat-tile-value" id="doc-stat-pending" style="color:var(--warn)">0</div>
+          <div class="stat-bar"><span id="doc-bar-pending" style="width:0%;background:var(--grad-amber)"></span></div>
+        </div>
+        <div class="stat-tile" style="--c:var(--teal)">
+          <div class="stat-tile-top"><span class="stat-tile-label">Total Chunks</span><i data-lucide="layers"></i></div>
+          <div class="stat-tile-value" id="doc-stat-chunks">0</div>
+          <div class="stat-bar"><span id="doc-bar-chunks" style="width:0%"></span></div>
+        </div>
+        <div class="stat-tile" style="--c:var(--purple)">
+          <div class="stat-tile-top"><span class="stat-tile-label">Total Records</span><i data-lucide="list"></i></div>
+          <div class="stat-tile-value" id="doc-stat-records">0</div>
+          <div class="stat-bar"><span id="doc-bar-records" style="width:0%"></span></div>
+        </div>
+      </div>
+
+      <div class="split-main" style="margin-top:14px">
+        <div class="sub-tabs">
+          <button class="sub-tab active" data-subtab="doc-register">Register &amp; Upload</button>
+          <button class="sub-tab" id="subtab-doc-table-btn" data-subtab="doc-table">
+            <span>Dataset Table</span>
+            <span id="subtab-pending-badge" style="display:none"></span>
+          </button>
+        </div>
+
+          <!-- Register & Upload -->
+          <div class="subtab-panel active" id="doc-register">
+            <form id="dataset-form" class="card form-card">
+              <div class="card-title"><i data-lucide="plus-circle"></i> Register New Dataset</div>
+              <div class="grid-2">
+                <div class="field-group">
+                  <label class="field-label">Dataset Name</label>
+                  <input name="name" placeholder="e.g. HDFC Banking Policies Q2-2026" required>
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Source</label>
+                  <input name="source" placeholder="e.g. Policy Portal v3.1" required>
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Approved Purpose</label>
+                  <input name="purpose" placeholder="e.g. Customer service grounding" required>
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Assistant Friendly Name (optional)</label>
+                  <input name="assistant_name" placeholder="e.g. HDFC Loan Specialist AI (auto-derived if empty)">
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Classification</label>
+                  <select name="classification">
+                    <option value="internal">Internal</option>
+                    <option value="restricted">Restricted</option>
+                    <option value="public">Public</option>
+                  </select>
+                </div>
+              </div>
+              <div class="field-group">
+                <label class="field-label">Task Records (JSON array) — optional if uploading documents only</label>
+                <textarea name="records" id="records-textarea" rows="4">[]</textarea>
+              </div>
+              <div class="actions-row">
+                <button type="button" id="load-sample" class="btn-secondary">
+                  <i data-lucide="sparkles"></i> Load Sample Dataset
+                </button>
+                <button type="submit" class="btn-primary">
+                  <i data-lucide="plus"></i> Register Dataset
+                </button>
+              </div>
+            </form>
+
+            <div class="card form-card">
+              <div class="card-title"><i data-lucide="upload-cloud"></i> Upload Documents</div>
+              <div class="grid-2" style="grid-template-columns: 1.2fr 0.8fr; gap: 20px; align-items: start;">
+                <!-- LEFT COLUMN: INPUTS -->
+                <div>
+                  <div class="field-group">
+                    <label class="field-label">Target Dataset</label>
+                    <select id="upload-dataset-select"></select>
+                  </div>
+
+                  <label class="dropzone" id="dropzone" for="pdf-file-input">
+                    <i data-lucide="file-up"></i>
+                    <div class="dropzone-text">Drop a <b>PDF or DOCX</b> here, or click to browse</div>
+                    <input type="file" id="pdf-file-input" accept=".pdf,.docx" hidden>
+                    <span class="dropzone-file" id="dropzone-file"></span>
+                  </label>
+                  <div class="actions-row">
+                    <button type="button" id="upload-pdf-btn" class="btn-secondary">
+                      <i data-lucide="file-up"></i> Upload File
+                    </button>
+                  </div>
+
+                  <div class="divider-label">— or paste policy text directly —</div>
+                  <div class="grid-2">
+                    <div class="field-group">
+                      <label class="field-label">Document Name</label>
+                      <input id="paste-filename" placeholder="e.g. loan_policy_2026.txt">
+                    </div>
+                    <div class="field-group actions-end">
+                      <button type="button" id="upload-text-btn" class="btn-secondary" style="width:100%">
+                        <i data-lucide="file-plus"></i> Add Document
+                      </button>
+                    </div>
+                  </div>
+                  <div class="field-group">
+                    <label class="field-label">Paste Text</label>
+                    <textarea id="paste-text" rows="3" placeholder="Paste raw policy text. It will be chunked and scanned for PII before storage."></textarea>
+                  </div>
+                </div>
+
+                <!-- RIGHT COLUMN: LIVE PROCESSING PIPELINE STATUS CARD -->
+                <div style="background:var(--bg-card-sub);border:1px solid var(--border-light);border-radius:8px;padding:16px;min-height:280px;display:flex;flex-direction:column;justify-content:space-between">
+                  <div>
+                    <div style="font-size:13px;font-weight:700;color:var(--text-main);display:flex;align-items:center;gap:6px;margin-bottom:12px">
+                      <i data-lucide="cpu" style="width:15px;height:15px;color:var(--blue)"></i> Document Pipeline Engine
+                    </div>
+                    <div id="process-stepper-container">
+                      <div id="process-stepper-empty" style="font-size:12px;color:var(--text-muted);line-height:1.5;padding:12px 0">
+                        <i data-lucide="info" style="width:14px;height:14px;vertical-align:-2px;margin-right:4px;color:var(--blue)"></i> Ready to ingest policy documents. Upload a PDF or paste text on the left to trigger the automatic chunking and PII scanning pipeline.
+                      </div>
+                      <div id="process-stepper" class="process-stepper" style="display:none;flex-direction:column;gap:8px"></div>
+                    </div>
+                  </div>
+                  <div id="upload-result" class="upload-result" style="margin-top:12px"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dataset Table -->
+          <div class="subtab-panel" id="doc-table">
+            <div class="card">
+              <div class="card-title-row">
+                <div class="card-title"><i data-lucide="table"></i> Registered Datasets</div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div class="search-box">
+                    <i data-lucide="search"></i>
+                    <input id="dataset-search" placeholder="Search datasets…" oninput="filterDatasets()">
+                  </div>
+                  <select id="dataset-status-filter" class="input" style="padding:6px 10px;font-size:12px;width:auto" onchange="filterDatasets()">
+                    <option value="all">All Statuses</option>
+                    <option value="approved">Approved Only</option>
+                    <option value="pending">Pending Approval</option>
+                  </select>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table id="dataset-table" class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Chunks</th>
+                      <th>Records</th>
+                      <th>Classification</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="dataset-list">
+                    <tr class="skeleton-row"><td colspan="6"><div class="skel"></div></td></tr>
+                    <tr class="skeleton-row"><td colspan="6"><div class="skel"></div></td></tr>
+                    <tr class="skeleton-row"><td colspan="6"><div class="skel"></div></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+    </section>
+
+    <!-- ========== AI FACTORY (RUNS) ========== -->
+    <section id="runs" class="tab">
+      <div class="hero compact">
+        <div class="hero-grid"></div>
+        <div class="hero-inner">
+          <div class="hero-left">
+            <div class="hero-eyebrow">Data Pipeline</div>
+            <h1 class="hero-title sm">AI Factory</h1>
+            <p class="hero-sub">Build a grounded adapter from an approved dataset — system-prompt adapter + TF-IDF index.</p>
+          </div>
+          <div class="hero-right">
+            <span class="env-badge" id="factory-model-badge"><i data-lucide="cpu"></i> Local model</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <!-- LEFT: build form + runs -->
+        <div class="two-col-left">
+          <form id="run-form" class="card form-card">
+            <div class="card-title"><i data-lucide="hammer"></i> New Adapter Run</div>
+            <div class="field-group">
+              <label class="field-label">Run Name</label>
+              <input name="name" placeholder="e.g. HDFC-Retail-v1.2" required>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Serving Model</label>
+              <select name="serving_model" id="serving-model-select">
+                <option value="HuggingFaceTB/SmolLM2-360M-Instruct">SmolLM2-360M-Instruct (fast CPU)</option>
+                <option value="Qwen/Qwen2.5-0.5B-Instruct">Qwen2.5-0.5B-Instruct (better grounding)</option>
+                <option value="Qwen/Qwen2.5-1.5B-Instruct">Qwen2.5-1.5B-Instruct (best quality)</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Dataset (Approved Only)</label>
+              <select name="dataset_id" id="run-dataset-select" required></select>
+            </div>
+            <p class="hint" id="serving-model-note"></p>
+            <div class="actions-row">
+              <button type="submit" class="btn-primary btn-block">
+                <i data-lucide="play"></i> Build Adapter
+              </button>
+            </div>
+          </form>
+
+          <div class="section-label">Recent Runs</div>
+          <div id="run-list" class="item-list"></div>
+        </div>
+
+        <!-- RIGHT: pipeline visualization -->
+        <div class="two-col-right">
+          <div class="card pipeline-card">
+            <div class="card-title"><i data-lucide="workflow"></i> Build Pipeline</div>
+            <div id="build-pipeline" class="vpipeline"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== EVALUATION GATE ========== -->
+    <section id="evaluations" class="tab">
+      <div class="page-head">
+        <div>
+          <h1>Evaluation Gate</h1>
+          <p>Calls the live model with and without your adapter for each banking test case. Blocks release on any critical failure.</p>
+        </div>
+      </div>
+
+      <form id="eval-form" class="card form-card">
+        <div class="card-title">Run Evaluation Gate</div>
+        <div class="field-group">
+          <label class="field-label">Select Adapter Run</label>
+          <select name="run_id" id="eval-run-select" required></select>
+        </div>
+        <div class="actions-row">
+          <button type="submit" class="btn-primary">
+            <i data-lucide="shield-check"></i> Run Evaluation Gate
+          </button>
+        </div>
+      </form>
+
+      <div id="eval-list" class="item-list"></div>
+    </section>
+
+    <!-- ========== MODEL REGISTRY ========== -->
+    <section id="registry" class="tab">
+      <div class="hero compact">
+        <div class="hero-grid"></div>
+        <div class="hero-inner">
+          <div class="hero-left">
+            <div class="hero-eyebrow">Release Control</div>
+            <h1 class="hero-title sm">Model Registry</h1>
+            <p class="hero-sub">Signed, versioned entries linking each release to its adapter, evaluation evidence, and owner.</p>
+          </div>
+          <div class="hero-right">
+            <span class="env-badge" id="registry-count-badge"><i data-lucide="library"></i> 0 registered</span>
+          </div>
+        </div>
+      </div>
+
+      <form id="registry-form" class="card form-card">
+        <div class="card-title"><i data-lucide="library"></i> Register Model</div>
+        <div class="form-row">
+          <div class="field-group">
+            <label class="field-label">Passed Evaluation</label>
+            <select name="evaluation_id" id="registry-eval-select" required></select>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Operational Owner</label>
+            <input name="owner" placeholder="e.g. ml-ops-team">
+          </div>
+          <div class="field-group actions-end">
+            <button type="submit" class="btn-primary">
+              <i data-lucide="library"></i> Register Model
+            </button>
+          </div>
+        </div>
+      </form>
+
+      <div id="registry-list" class="card-grid"></div>
+    </section>
+
+    <!-- ========== DEPLOYMENT ========== -->
+    <section id="deployments" class="tab">
+      <div class="hero compact">
+        <div class="hero-grid"></div>
+        <div class="hero-inner">
+          <div class="hero-left">
+            <div class="hero-eyebrow">Release Control</div>
+            <h1 class="hero-title sm">Deployment</h1>
+            <p class="hero-sub">Canary traffic control, expansion, and rollback for promoted models.</p>
+          </div>
+        </div>
+      </div>
+
+      <div id="deploy-summary-row" class="summary-row"></div>
+
+      <form id="deploy-form" class="card form-card">
+        <div class="card-title"><i data-lucide="rocket"></i> Promote to Deployment</div>
+        <div class="form-row">
+          <div class="field-group" style="flex:1">
+            <label class="field-label">Registry Model</label>
+            <select id="deploy-registry-select"></select>
+          </div>
+          <div class="field-group actions-end">
+            <button type="button" id="promote-btn" class="btn-primary">
+              <i data-lucide="rocket"></i> Promote
+            </button>
+          </div>
+        </div>
+      </form>
+
+      <div id="deployment-list" class="item-list"></div>
+    </section>
+
+    <!-- ========== AI PLAYGROUND ========== -->
+    <section id="playground" class="tab tab-full">
+      <div class="chat-shell">
+        <!-- LEFT: conversation history -->
+        <aside class="chat-history">
+          <button class="btn-primary btn-block" id="new-chat-btn">
+            <i data-lucide="plus"></i> New Chat
+          </button>
+          <div class="chat-history-label">Saved Chats</div>
+          <div id="conversation-list" class="conversation-list"></div>
+          <div class="chat-history-user">
+            <div class="user-avatar sm" id="chat-user-avatar">A</div>
+            <div class="user-info">
+              <div class="user-name" id="chat-user-name">AI Engineer</div>
+              <div class="user-role" id="chat-user-role">AI Engineer</div>
+            </div>
+          </div>
+        </aside>
+
+        <!-- CENTER: chat window -->
+        <div class="chat-window">
+          <div class="chat-topbar">
+            <div class="chat-topbar-left">
+              <i data-lucide="message-square"></i>
+              <select id="infer-deployment-select" class="chat-deploy-select">
+                <option value="">Base model — no deployment</option>
+              </select>
+            </div>
+            <div class="chat-topbar-right">
+              <button class="btn-toggle-sources active" id="toggle-sources-btn" title="Hide Sources">
+                <i data-lucide="eye"></i><span>Sources</span>
+              </button>
+              <button class="btn-secondary btn-sm" onclick="exportChatConversation()" title="Export chat transcript as Markdown"><i data-lucide="download"></i> Export Chat</button>
+              <button class="btn-secondary btn-sm" id="clear-chat-btn"><i data-lucide="eraser"></i> Clear</button>
+            </div>
+          </div>
+
+          <div id="chat-messages" class="chat-messages"></div>
+
+          <div class="chat-composer">
+            <div class="quick-chips" id="quick-chips"></div>
+            <div class="chat-input-row">
+              <textarea id="chat-input" rows="1" placeholder="Ask about loans, KYC, FD rules, fraud…"></textarea>
+              <button class="btn-send" id="chat-send-btn" title="Send (Enter)">
+                <i data-lucide="send"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: retrieval panel -->
+        <aside class="chat-retrieval">
+          <div class="retrieval-head"><i data-lucide="book-open"></i> Retrieved Sources</div>
+          <div id="infer-sources" class="retrieval-body">
+            <div class="confidence-gauge" id="confidence-gauge" style="display:none"></div>
+            <div id="sources-list"></div>
+            <div class="retrieval-empty" id="retrieval-empty">
+              <i data-lucide="search"></i>
+              <p>Retrieved context and confidence appear here after you send a message.</p>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ========== MONITORING ========== -->
+    <section id="monitoring" class="tab">
+      <div class="hero compact">
+        <div class="hero-grid"></div>
+        <div class="hero-inner">
+          <div class="hero-left">
+            <div class="hero-eyebrow">Operations &amp; Security Audit</div>
+            <h1 class="hero-title sm">Monitoring &amp; Telemetry</h1>
+            <p class="hero-sub">Real-time inference metrics, guardrail policy hits, SLA response latencies, and compliance logging.</p>
+          </div>
+          <div class="hero-right">
+            <button class="btn-secondary btn-sm" onclick="exportMonitoringCSV()">
+              <i data-lucide="download"></i> Export Telemetry (CSV)
+            </button>
+            <button class="btn-secondary btn-sm" onclick="renderMonitoring()">
+              <i data-lucide="refresh-cw"></i> Refresh
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div id="monitoring-kpis" class="telemetry-grid"></div>
+
+      <div class="card" style="margin-top:16px">
+        <div class="card-title"><i data-lucide="shield"></i> Guardrail &amp; Security Policy Breakdown</div>
+        <div id="guardrail-breakdown"></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- USER PROFILE MODAL -->
+<div id="profile-modal" class="modal-overlay" style="display:none">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div style="display:flex;align-items:center;gap:10px">
+        <i data-lucide="user-check" style="color:var(--blue)"></i>
+        <h3 style="margin:0;font-size:16px">User Profile &amp; Security Settings</h3>
+      </div>
+      <button class="modal-close" onclick="closeUserProfileModal()"><i data-lucide="x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="profile-hero">
+        <div class="user-avatar lg" id="modal-user-avatar">A</div>
+        <div class="profile-meta">
+          <div class="profile-name" id="modal-user-name">Abhi</div>
+          <div class="profile-email" id="modal-user-email">abhi@hdfcbank.com</div>
+          <div class="profile-badge-row">
+            <span class="badge ok" id="modal-user-emp-badge"><i data-lucide="shield-check" style="width:11px;height:11px;margin-right:3px"></i> Verified HDFC Officer: HDFC-AI-101</span>
+            <span class="badge blue">Tier 3 — Enterprise Admin</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="profile-section-title">HDFC Security &amp; Access Controls</div>
+      <div class="health-row">
+        <div class="health-row-key"><i data-lucide="shield-check" style="width:13px;height:13px;color:var(--ok)"></i> HDFC Employee Verification</div>
+        <div class="health-row-val green" id="modal-emp-id-val">HDFC-AI-101 (Verified)</div>
+      </div>
+      <div class="health-row">
+        <div class="health-row-key"><i data-lucide="key-round" style="width:13px;height:13px;color:var(--purple)"></i> Authentication Standard</div>
+        <div class="health-row-val green">PostgreSQL Cloud DB Verified</div>
+      </div>
+
+      <div class="profile-section-title">Update Profile &amp; Security</div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px">
+        <div>
+          <label style="font-size:11.5px;color:var(--text-secondary);display:block;margin-bottom:4px">HDFC Unique Employee ID</label>
+          <input id="edit-profile-emp-id" type="text" class="input" style="width:100%" placeholder="e.g. HDFC-AI-101 or DEV 3301" value="HDFC-AI-101">
+        </div>
+        <div>
+          <label style="font-size:11.5px;color:var(--text-secondary);display:block;margin-bottom:4px">Display Name</label>
+          <input id="edit-profile-name" type="text" class="input" style="width:100%" placeholder="Your Name" value="Abhi">
+        </div>
+        <div>
+          <label style="font-size:11.5px;color:var(--text-secondary);display:block;margin-bottom:4px">Organizational Role</label>
+          <select id="edit-profile-role" class="input" style="width:100%">
+            <option value="Lead AI Engineer">Lead AI Engineer (Abhi)</option>
+            <option value="Risk &amp; Compliance Officer">Risk &amp; Compliance Officer</option>
+            <option value="Security Auditor">Security &amp; Fraud Auditor</option>
+            <option value="System Administrator">System Administrator</option>
+          </select>
+        </div>
+        <div style="margin-top:4px">
+          <button type="button" class="btn-secondary" style="width:100%;color:var(--warn)" onclick="openPasswordModal('update')"><i data-lucide="key"></i> Security &amp; Password Options</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn-secondary" onclick="doLogout()"><i data-lucide="log-out"></i> Logout</button>
+      <button type="button" class="btn-primary" onclick="saveUserProfile()"><i data-lucide="check"></i> Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- UNIFIED PASSWORD MANAGEMENT MODAL (Supports both Update & Forgot Password) -->
+<div id="password-modal" class="modal-overlay" style="display:none">
+  <div class="modal-card" style="max-width:460px">
+    <div class="modal-head">
+      <div class="modal-title"><i data-lucide="shield-check"></i> HDFC Password &amp; Account Security</div>
+      <button class="modal-close" onclick="closePasswordModal()">&times;</button>
+    </div>
+
+    <!-- Modal Sub-Tabs -->
+    <div style="display:flex;border-bottom:1px solid var(--border-light);background:var(--bg-card-sub)">
+      <button type="button" id="tab-pass-update-btn" class="sub-tab active" style="flex:1;padding:10px;text-align:center" onclick="switchPasswordTab('update')">
+        <i data-lucide="lock" style="width:13px;height:13px;vertical-align:-1px;margin-right:4px"></i> Update Password
+      </button>
+      <button type="button" id="tab-pass-forgot-btn" class="sub-tab" style="flex:1;padding:10px;text-align:center" onclick="switchPasswordTab('forgot')">
+        <i data-lucide="key-round" style="width:13px;height:13px;vertical-align:-1px;margin-right:4px"></i> Recovery
+      </button>
+      <button type="button" id="tab-pass-temp-btn" class="sub-tab" style="flex:1;padding:10px;text-align:center" onclick="switchPasswordTab('temp')">
+        <i data-lucide="smartphone" style="width:13px;height:13px;vertical-align:-1px;margin-right:4px"></i> Temp Passcodes & Sessions
+      </button>
+    </div>
+
+    <!-- TAB 1: UPDATE PASSWORD -->
+    <div id="pass-panel-update" class="modal-body" style="padding:16px">
+      <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">
+        Update your active account password below:
+      </p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div>
+          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">Current Password</label>
+          <input id="update-curr-pass" type="password" class="input" style="width:100%" placeholder="Enter current password">
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">New Password</label>
+          <input id="update-new-pass" type="password" class="input" style="width:100%" placeholder="Enter new password">
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">Confirm New Password</label>
+          <input id="update-confirm-pass" type="password" class="input" style="width:100%" placeholder="Re-enter new password">
+        </div>
+      </div>
+      <div style="margin-top:16px;display:flex;justify-content:flex-end;gap:8px">
+        <button type="button" class="btn-secondary" onclick="closePasswordModal()">Cancel</button>
+        <button type="button" class="btn-primary" onclick="submitUpdatePassword()"><i data-lucide="check"></i> Update Password</button>
+      </div>
+    </div>
+
+    <!-- TAB 2: FORGOT PASSWORD / ACCOUNT RECOVERY -->
+    <div id="pass-panel-forgot" class="modal-body" style="padding:16px;display:none">
+      <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">
+        To reset your password, enter your <b>HDFC Unique Employee ID</b> and <b>Corporate Email</b>:
+      </p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div>
+          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">HDFC Unique Employee ID</label>
+          <input id="forgot-empid" type="text" class="input" style="width:100%" placeholder="e.g. HDFC-EMP-1001">
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">Registered Corporate Email</label>
+          <input id="forgot-email" type="email" class="input" style="width:100%" placeholder="e.g. officer@hdfcbank.com">
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">New Password</label>
+          <input id="forgot-new-pass" type="password" class="input" style="width:100%" placeholder="Enter new secure password">
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">Confirm New Password</label>
+          <input id="forgot-confirm-pass" type="password" class="input" style="width:100%" placeholder="Re-enter new secure password">
+        </div>
+      </div>
+      <div style="margin-top:16px;display:flex;justify-content:flex-end;gap:8px">
+        <button type="button" class="btn-secondary" onclick="closePasswordModal()">Cancel</button>
+        <button type="button" class="btn-primary" onclick="submitForgotPassword()"><i data-lucide="check-circle"></i> Verify &amp; Reset Password</button>
+      </div>
+    </div>
+
+    <!-- TAB 3: TEMP PASSCODES & REMOTE SESSION CONTROL -->
+    <div id="pass-panel-temp" class="modal-body" style="padding:16px;display:none">
+      <div style="background:var(--bg-card-sub);border:1px solid var(--border-light);border-radius:8px;padding:12px;margin-bottom:14px">
+        <div style="font-size:12px;font-weight:600;color:var(--text-main);margin-bottom:4px">
+          <i data-lucide="smartphone" style="width:14px;height:14px;color:var(--blue);vertical-align:-2px"></i> Generate Temporary Access Passcode
+        </div>
+        <p style="font-size:11.5px;color:var(--text-secondary);margin-bottom:10px;line-height:1.4">
+          Generate a 15-minute passkey to log into your profile on another laptop or mobile device <b>without entering your master password or ID</b>.
+        </p>
+        <div id="temp-code-display" style="display:none;background:rgba(59,130,246,0.12);border:1px dashed var(--blue);border-radius:6px;padding:10px;text-align:center;margin-bottom:10px">
+          <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px">Temporary Passcode (Valid 15 Mins)</div>
+          <div id="temp-passcode-val" style="font-size:22px;font-weight:800;font-family:var(--font-mono);color:var(--blue);letter-spacing:3px;margin:4px 0">TMP-XXXXXX</div>
+          <div id="temp-timer" style="font-size:11px;color:var(--ok)">Expires in 15:00</div>
+          <div id="temp-status-subtext" style="font-size:10.5px;color:var(--text-secondary);margin-top:4px;display:none"></div>
+        </div>
+        <button type="button" class="btn-primary" style="width:100%" onclick="generateTempPasscode()">
+          <i data-lucide="key-round"></i> Generate 15-Min Temp Passcode
+        </button>
+      </div>
+
+      <div style="margin-top:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div style="font-size:12px;font-weight:600;color:var(--text-main)"><i data-lucide="shield-alert" style="width:13px;height:13px;color:var(--accent);vertical-align:-1px"></i> Active Device Sessions</div>
+          <button type="button" class="btn-secondary" style="font-size:11px;padding:4px 8px" onclick="loadActiveSessions()">Refresh</button>
+        </div>
+        <div id="active-sessions-list" style="max-height:140px;overflow-y:auto;border:1px solid var(--border-light);border-radius:6px">
+          <div style="font-size:11px;color:var(--text-muted);text-align:center;padding:12px">Loading active device sessions...</div>
+        </div>
+      </div>
+
+      <div style="margin-top:14px">
+        <div style="font-size:12px;font-weight:600;color:var(--text-main);margin-bottom:8px">
+          <i data-lucide="history" style="width:13px;height:13px;color:var(--text-muted);vertical-align:-1px"></i> Recently Killed / Terminated Sessions
+        </div>
+        <div id="terminated-sessions-list" style="max-height:120px;overflow-y:auto;border:1px solid var(--border-light);border-radius:6px;background:rgba(239,68,68,0.03)">
+          <div style="font-size:11px;color:var(--text-muted);text-align:center;padding:10px">No terminated sessions recorded.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- VISUAL TEMP PASSCODE SIGN-IN MODAL -->
+<div id="temp-signin-modal" class="modal-overlay" style="display:none">
+  <div class="modal-card" style="max-width:420px">
+    <div class="modal-head">
+      <div class="modal-title" style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700">
+        <i data-lucide="smartphone" style="color:var(--blue)"></i>
+        <span>Sign In via Temp Passcode</span>
+      </div>
+      <button class="modal-close" onclick="closeTempSignInModal()">&times;</button>
+    </div>
+    <div class="modal-body" style="padding:20px">
+      <p style="font-size:12px;color:var(--text-secondary);margin-bottom:14px;line-height:1.4">
+        Enter your <b>Registered Corporate Email / ID</b> and the <b>15-Minute Temporary Passcode</b> generated from your main profile:
+      </p>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div>
+          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">Registered Corporate Email / ID</label>
+          <input id="temp-login-username" type="text" class="input" style="width:100%" placeholder="e.g. officer@hdfcbank.com or HDFC-EMP-1001">
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">15-Minute Temporary Passcode</label>
+          <input id="temp-login-passcode" type="text" class="input" style="width:100%;font-family:var(--font-mono);letter-spacing:2px;text-transform:uppercase" placeholder="e.g. TMP-894201">
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn-secondary" onclick="closeTempSignInModal()">Cancel</button>
+      <button type="button" class="btn-primary" onclick="submitTempPasscodeSignIn()"><i data-lucide="log-in"></i> Authenticate &amp; Sign In</button>
+    </div>
+  </div>
+</div>
+
+<!-- REGISTRATION SUCCESS MODAL (BACKUP RECOVERY CODE DISPLAY) -->
+<div id="reg-success-modal" class="modal-overlay" style="display:none">
+  <div class="modal-card" style="max-width:440px">
+    <div class="modal-head" style="background:rgba(16,185,129,0.08);border-bottom:1px solid rgba(16,185,129,0.2)">
+      <div class="modal-title" style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700;color:var(--ok)">
+        <i data-lucide="shield-check" style="color:var(--ok)"></i>
+        <span>Account Created Successfully!</span>
+      </div>
+      <button class="modal-close" onclick="closeRegSuccessModal()">&times;</button>
+    </div>
+    <div class="modal-body" style="padding:20px">
+      <p style="font-size:12.5px;color:var(--text-secondary);margin-bottom:14px;line-height:1.5">
+        Welcome to HDFC Bank! Your account details and secret password recovery code have been generated below:
+      </p>
+      
+      <div style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
+          <span style="color:var(--text-muted)">Assigned Account ID:</span>
+          <span id="reg-succ-id" style="font-weight:700;font-family:var(--font-mono);color:var(--text-primary)">CUST-10001</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px">
+          <span style="color:var(--text-muted)">Registered Email:</span>
+          <span id="reg-succ-email" style="font-weight:600;color:var(--text-primary)">user@example.com</span>
+        </div>
+      </div>
+
+      <div style="background:rgba(59,130,246,0.06);border:1.5px dashed var(--blue);border-radius:10px;padding:14px;text-align:center">
+        <div style="font-size:11px;font-weight:600;color:var(--blue);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:4px">
+          <i data-lucide="key" style="width:13px;height:13px;vertical-align:-1px"></i> Secret 6-Digit Backup Recovery Code
+        </div>
+        <div id="reg-succ-backup-code" style="font-size:22px;font-weight:800;font-family:var(--font-mono);letter-spacing:3px;color:var(--text-primary);margin:6px 0">
+          SEC-894201
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">
+          ⚠️ Save this code! You will need it to reset your password if forgotten.
+        </div>
+        <button type="button" class="btn-secondary btn-sm" style="margin-top:10px;font-size:11px" onclick="copyRegBackupCode()">
+          <i data-lucide="copy"></i> Copy Recovery Code
+        </button>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn-primary" style="width:100%" onclick="closeRegSuccessModal()">
+        Proceed to Login &amp; Chat <i data-lucide="arrow-right"></i>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- FORGOT PASSWORD MODAL (LOGIN SCREEN) -->
+<div id="forgot-password-modal" class="modal-overlay" style="display:none">
+  <div class="modal-card" style="max-width:440px">
+    <div class="modal-head">
+      <div class="modal-title" style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700">
+        <i data-lucide="key-round" style="color:var(--blue)"></i>
+        <span>Reset Account Password</span>
+      </div>
+      <button class="modal-close" onclick="closeForgotPasswordModal()">&times;</button>
+    </div>
+    <div class="modal-body" style="padding:20px">
+      <!-- Role Toggle -->
+      <div class="role-selector-bar" style="margin-bottom:16px">
+        <button type="button" class="role-sel-btn active" id="forgot-role-btn-emp" onclick="setForgotRole('employee')">
+          <i data-lucide="briefcase"></i> Employee / Admin
+        </button>
+        <button type="button" class="role-sel-btn" id="forgot-role-btn-user" onclick="setForgotRole('user')">
+          <i data-lucide="user"></i> Customer / User
+        </button>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div>
+          <label class="field-label" id="forgot-id-label">Employee ID or Corporate Email</label>
+          <input id="forgot-id-input" type="text" class="input" style="width:100%" placeholder="e.g. HDFC-AI-101 or email@hdfcbank.com">
+        </div>
+
+        <div id="forgot-backup-code-group" style="display:none">
+          <label class="field-label">6-Digit Backup Recovery Code</label>
+          <input id="forgot-backup-code-input" type="text" class="input" style="width:100%;font-family:var(--font-mono);letter-spacing:2px;text-transform:uppercase" placeholder="e.g. SEC-894201">
+          <span style="font-size:10.5px;color:var(--text-muted);margin-top:2px;display:block">Enter the 6-digit Backup Code given during Account Sign Up.</span>
+        </div>
+
+        <div>
+          <label class="field-label">New Password</label>
+          <input id="forgot-new-pass" type="password" class="input" style="width:100%" placeholder="Enter new password">
+        </div>
+        <div>
+          <label class="field-label">Confirm New Password</label>
+          <input id="forgot-confirm-pass" type="password" class="input" style="width:100%" placeholder="Re-enter new password">
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn-secondary" onclick="closeForgotPasswordModal()">Cancel</button>
+      <button type="button" class="btn-primary" onclick="submitForgotPassword()"><i data-lucide="check-circle"></i> Reset &amp; Save Password</button>
+    </div>
+  </div>
+</div>
+
+<!-- USER PROFILE & SECURITY MODAL -->
+<div id="password-modal" class="modal-overlay" style="display:none">
+  <div class="modal-card" style="max-width:460px">
+    <div class="modal-head">
+      <div class="modal-title" style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700">
+        <i data-lucide="shield-check" style="color:var(--blue)"></i>
+        <span id="prof-modal-title">HDFC Password &amp; Account Security</span>
+      </div>
+      <button class="modal-close" onclick="closePasswordModal()">&times;</button>
+    </div>
+    <div class="modal-body" style="padding:20px">
+      <!-- Profile Modal Tab Bar -->
+      <div class="role-selector-bar" style="margin-bottom:16px">
+        <button type="button" class="role-sel-btn active" id="prof-tab-pass" onclick="switchProfileTab('pass')">
+          <i data-lucide="lock"></i> Update Password
+        </button>
+        <button type="button" class="role-sel-btn" id="prof-tab-recovery" onclick="switchProfileTab('recovery')">
+          <i data-lucide="key"></i> Recovery Code
+        </button>
+      </div>
+
+      <!-- TAB 1: UPDATE PASSWORD -->
+      <div id="prof-panel-pass">
+        <div style="font-size:12px;color:var(--text-secondary);margin-bottom:14px">
+          Update your active account password below:
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div>
+            <label class="field-label">Current Password</label>
+            <input id="update-curr-pass" type="password" class="input" style="width:100%" placeholder="Enter current password">
+          </div>
+          <div>
+            <label class="field-label">New Password</label>
+            <input id="update-new-pass" type="password" class="input" style="width:100%" placeholder="Enter new password">
+          </div>
+          <div>
+            <label class="field-label">Confirm New Password</label>
+            <input id="update-confirm-pass" type="password" class="input" style="width:100%" placeholder="Re-enter new password">
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: RECOVERY & BACKUP CODE -->
+      <div id="prof-panel-recovery" style="display:none">
+        <div style="background:rgba(59,130,246,0.06);border:1.5px dashed var(--blue);border-radius:10px;padding:16px;text-align:center">
+          <div style="font-size:11px;font-weight:600;color:var(--blue);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:4px">
+            <i data-lucide="shield-alert" style="width:13px;height:13px;vertical-align:-1px"></i> Secret 6-Digit Backup Recovery Code
+          </div>
+          <div id="prof-backup-code-display" style="font-size:24px;font-weight:800;font-family:var(--font-mono);letter-spacing:3px;color:var(--text-primary);margin:8px 0">
+            SEC-894201
+          </div>
+          <div style="font-size:11.5px;color:var(--text-muted);line-height:1.4">
+            Save this 6-Digit Recovery Code! You can use this code on the login screen if you ever forget your password.
+          </div>
+          <button type="button" class="btn-secondary btn-sm" style="margin-top:12px;font-size:11.5px" onclick="copyProfBackupCode()">
+            <i data-lucide="copy"></i> Copy Recovery Code
+          </button>
+        </div>
+      </div>
+
+    </div>
+    <div class="modal-foot" id="prof-modal-foot">
+      <button type="button" class="btn-secondary" onclick="closePasswordModal()">Cancel</button>
+      <button type="button" id="prof-update-pass-btn" class="btn-primary" onclick="submitUpdatePassword()"><i data-lucide="check"></i> Update Password</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div id="toast-container" class="toast-container"></div>
+
+<script src="app.js?v=55"></script>
 </body>
 </html>
