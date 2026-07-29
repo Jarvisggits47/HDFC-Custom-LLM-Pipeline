@@ -1226,7 +1226,7 @@ def get_active_sessions(request: Request):
     sessions.append(master_sess)
 
     for s in reversed(user_sessions):
-        if s.get("id") != "master-primary-sess":
+        if s.get("id") != "master-primary-sess" and s.get("status") == "active":
             sessions.append(s)
 
     return sessions[:4]
@@ -1236,7 +1236,8 @@ def get_active_sessions(request: Request):
 def clear_sessions_endpoint(request: Request):
     emp_id = get_emp_id_from_req(request)
     ACTIVE_SESSIONS_DB[emp_id] = []
-    return {"status": "ok", "message": "Cleared stale sessions."}
+    ACTIVE_SESSIONS_DB.clear()
+    return {"status": "ok", "message": "Cleared all stale sessions."}
 
 
 @app.post("/api/auth/terminate-session/{session_id}")

@@ -1066,6 +1066,11 @@ async function renderActiveSessionsList() {
     console.warn("Backend active-sessions offline fallback:", err);
   }
 
+  // Filter out terminated sessions
+  if (Array.isArray(sessions)) {
+    sessions = sessions.filter(s => s && s.status === "active");
+  }
+
   if (!sessions || !Array.isArray(sessions) || sessions.length === 0) {
     sessions = [
       {
