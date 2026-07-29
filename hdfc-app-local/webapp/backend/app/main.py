@@ -1213,11 +1213,12 @@ def get_active_sessions(request: Request):
     master_sess = {
         "id": "master-primary-sess",
         "type": "master",
-        "device": "Master Primary Session (Workstation)",
-        "ip": "127.0.0.1",
-        "login_type": "Primary Credentials",
+        "device": "Chrome on Windows 11 (Primary Master)",
+        "icon": "laptop",
+        "ip": "127.0.0.1 (Local Workstation)",
+        "login_type": "Master Password Auth",
         "token": "master-token-primary",
-        "created_at": datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+        "created_at": datetime.datetime.utcnow().strftime("%H:%M:%S"),
         "is_master": True,
         "can_kill": False,
         "status": "active"
@@ -1225,8 +1226,7 @@ def get_active_sessions(request: Request):
     sessions.append(master_sess)
 
     for s in user_sessions:
-        if s.get("status") == "active":
-            sessions.append(s)
+        sessions.append(s)
 
     return sessions
 
@@ -1241,6 +1241,7 @@ def terminate_session_endpoint(session_id: str, request: Request):
             if s.get("is_master"):
                 raise HTTPException(400, "Master Primary Session cannot be killed.")
             s["status"] = "terminated"
+            s["terminated_at"] = datetime.datetime.utcnow().strftime("%H:%M:%S")
             return {"status": "ok", "message": f"Terminated temporary session '{session_id}'."}
 
     return {"status": "ok", "message": f"Terminated session '{session_id}'."}
