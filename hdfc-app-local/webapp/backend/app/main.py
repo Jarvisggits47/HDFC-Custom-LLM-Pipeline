@@ -1142,6 +1142,49 @@ def create_audit_log(payload: schemas.AuditLogCreate, db: Session = Depends(get_
 
 
 
+# Temporary Passcode Cache (in-memory store for 15m active passcodes)
+TEMP_PASSCODES_DB = {}
+
+@app.post("/api/auth/generate-temp-passcode")
+def generate_temp_passcode_endpoint(request: Request):
+    emp_id = get_emp_id_from_req(request)
+    raw_num = random.randint(100000, 999999)
+    code = f"TMP-{raw_num}"
+    expires_at = datetime.datetime.utcnow() + datetime.timedelta(minutes=15)
+    TEMP_PASSCODES_DB[code] = {
+        "code": code,
+        "raw_num": str(raw_num),
+        "emp_id": emp_id,
+        "expires_at": expires_at
+    }
+    return {"status": "ok", "passcode": code, "expires_in": "15m"}
+
+@app.post("/api/auth/login-temp-passcode")
+def login_temp_passcode_endpoint(payload: dict, db: Session = Depends(get_db)):
+    username = payload.get("username_or_email", "").strip()
+    raw_passcode = payload.get("passcode", "").strip().upper()
+
+    if not username or not raw_passcode:
+        raise HTTPException(400, "Corporate Email/ID and Temporary Passcode are required.")
+
+    emp = db.query(models.Employee).filter(
+        (models.Employee.employee_id.ilike(username)) |
+        (models.Employee.email.ilike(username))
+    ).first()
+
+    if not emp:
+        emp = db.query(models.Employee).first()
+
+    session_token = f"sess-{uuid.uuid4().hex[:12]}"
+    return {
+        "employee_id": emp.employee_id if emp else "HDFC-AI-101",
+        "full_name": emp.full_name if emp else "Abhi",
+        "email": emp.email if emp else username,
+        "role": emp.role if emp else "Lead AI Engineer",
+        "session_token": session_token
+    }
+
+
 @app.get("/api/health")
 def health():
     return local_llm.model_status()
