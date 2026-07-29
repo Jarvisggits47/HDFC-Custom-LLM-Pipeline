@@ -661,21 +661,9 @@ async function terminateSession(sessionId) {
     showToast("🚫 Temporary session terminated remotely.", "ok");
   }
 
-  const termList = JSON.parse(localStorage.getItem("hdfc_terminated_sessions") || "[]");
-  termList.push({
-    id: sessionId,
-    token: sessionId,
-    device: "Safari on Mobile iOS (Revoked Temp Session)",
-    auth_type: "Emergency Temp Passcode",
-    status: "terminated",
-    is_master: false,
-    can_kill: false,
-    terminated_at: new Date().toLocaleTimeString()
-  });
-  localStorage.setItem("hdfc_terminated_sessions", JSON.stringify(termList));
-
   localStorage.removeItem("hdfc_temp_passcode");
   localStorage.removeItem("hdfc_temp_passcodes_list");
+  localStorage.removeItem("hdfc_terminated_sessions");
 
   renderActiveSessionsList();
 }
@@ -1078,8 +1066,6 @@ async function renderActiveSessionsList() {
     console.warn("Backend active-sessions offline fallback:", err);
   }
 
-  const localTerminated = JSON.parse(localStorage.getItem("hdfc_terminated_sessions") || "[]");
-
   if (!sessions || !Array.isArray(sessions) || sessions.length === 0) {
     sessions = [
       {
@@ -1095,32 +1081,23 @@ async function renderActiveSessionsList() {
         created_at: "Active Now"
       }
     ];
-
-    const tempStore = JSON.parse(localStorage.getItem("hdfc_temp_passcode") || "null");
-    if (tempStore && Date.now() < tempStore.expiresAt) {
-      sessions.push({
-        id: "temp-sess-mobile",
-        device: "Safari on Mobile iOS (Temp Passcode)",
-        icon: "smartphone",
-        ip: "10.42.0.88 (Mobile Gateway)",
-        auth_type: `Temp Passcode (${tempStore.code})`,
-        token: `sess-temp-${tempStore.code}`,
-        is_master: false,
-        can_kill: true,
+  } else {
+    const masterIdx = sessions.findIndex(s => s.is_master || s.id === "master-primary-sess");
+    if (masterIdx < 0) {
+      sessions.unshift({
+        id: "master-primary-sess",
+        device: `Chrome on Windows 11 (Master Primary — ${u.name || "Abhi"})`,
+        icon: "laptop",
+        ip: "127.0.0.1 (Local Workstation)",
+        auth_type: "Master Password Login",
+        token: currentToken,
+        is_master: true,
+        can_kill: false,
         status: "active",
-        created_at: "Active (Expires in 15m)"
+        created_at: "Active Now"
       });
     }
   }
-
-  localTerminated.forEach(term => {
-    if (!sessions.some(s => s.id === term.id || s.token === term.token)) {
-      sessions.push(term);
-    } else {
-      const idx = sessions.findIndex(s => s.id === term.id || s.token === term.token);
-      if (idx >= 0) sessions[idx] = { ...sessions[idx], ...term };
-    }
-  });
 
   container.innerHTML = sessions.map(s => {
     const isMaster = s.is_master || s.id === "master-primary-sess" || s.token === currentToken;
@@ -1134,7 +1111,7 @@ async function renderActiveSessionsList() {
             ${esc(s.device || "Active Session")}
           </div>
           <div style="font-size:10.5px;color:var(--text-muted);margin-top:3px">
-            <span style="color:var(--text-secondary)">${esc(s.auth_type || (isMaster ? "Master Password" : "Temp Passcode"))}</span> · IP: ${esc(s.ip || "127.0.0.1")} · Token: ${esc(String(s.token || s.id).slice(0, 14))}…
+            <span style="color:var(--text-secondary)">${esc(s.auth_type || (isMaster ? "Master Password Login" : "Temp Passcode"))}</span> · IP: ${esc(s.ip || "127.0.0.1")} · Token: ${esc(String(s.token || s.id).slice(0, 14))}…
           </div>
         </div>
         <div>
