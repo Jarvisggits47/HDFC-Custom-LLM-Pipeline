@@ -1248,18 +1248,18 @@ def clear_sessions_endpoint(request: Request):
 
 @app.post("/api/auth/terminate-session/{session_id}")
 def terminate_session_endpoint(session_id: str, request: Request):
-    emp_id = get_emp_id_from_req(request)
-    user_sessions = ACTIVE_SESSIONS_DB.get(emp_id, [])
-    
-    for s in user_sessions:
-        if s.get("id") == session_id or s.get("token") == session_id:
-            if s.get("is_master"):
-                raise HTTPException(400, "Master Primary Session cannot be killed.")
-            s["status"] = "terminated"
-            s["terminated_at"] = datetime.datetime.utcnow().strftime("%H:%M:%S")
-            return {"status": "ok", "message": f"Terminated temporary session '{session_id}'."}
+    if session_id == "master-primary-sess":
+        raise HTTPException(400, "Master Primary Session cannot be killed.")
 
-    return {"status": "ok", "message": f"Terminated session '{session_id}'."}
+    for k, user_sessions in list(ACTIVE_SESSIONS_DB.items()):
+        new_list = []
+        for s in user_sessions:
+            if s.get("id") == session_id or s.get("token") == session_id or session_id in str(s.get("token")):
+                continue
+            new_list.append(s)
+        ACTIVE_SESSIONS_DB[k] = new_list
+
+    return {"status": "ok", "message": f"Terminated temporary session '{session_id}'."}
 
 
 @app.get("/api/health")

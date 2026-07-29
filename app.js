@@ -1099,13 +1099,13 @@ async function renderActiveSessionsList() {
   }
 
   container.innerHTML = sessionsList.map(s => {
-    const isMaster = s.login_type === "master" || s.is_master || s.id === "master-primary-sess";
+    const isMaster = (s.id === "master-primary-sess") || (s.token === currentToken && currentToken !== "sess-master-primary");
     return `
       <div id="sess-row-${s.id || s.token}" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1px solid var(--border-light);background:var(--bg-card-sub);border-radius:8px;margin-bottom:8px">
         <div>
           <div style="font-size:12px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:6px">
             <i data-lucide="${isMaster ? "shield-check" : "smartphone"}" style="width:14px;height:14px;color:${isMaster ? "var(--ok)" : "var(--blue)"}"></i>
-            ${esc(s.device_info || s.device || "Active Session")}
+            ${esc(s.device_info || s.device || (isMaster ? `Chrome on Windows 11 (Master Primary — ${u.name || "Abhi"})` : "Temp Passcode Login"))}
           </div>
           <div style="font-size:10.5px;color:var(--text-muted);margin-top:3px">
             IP: ${esc(s.ip_address || s.ip || "127.0.0.1")} · Token: ${esc(String(s.token || s.id).slice(0, 14))}…
