@@ -142,6 +142,7 @@ class Employee(Base):
     role = Column(String, nullable=False, default="employee") # employee vs user
     department = Column(String, nullable=False, default="AI Engineering")
     password = Column(String, nullable=False, default="Hdfc@2026")
+    backup_code = Column(String(50), nullable=True)
     created_at = Column(DateTime, default=now)
 
 

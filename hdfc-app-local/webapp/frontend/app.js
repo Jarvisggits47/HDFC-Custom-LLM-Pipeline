@@ -695,14 +695,58 @@ async function submitTempPasscodeSignIn() {
   }
 }
 
+let _currentForgotRole = "employee";
+
+function openForgotPasswordModal() {
+  const modal = document.getElementById("forgot-password-modal");
+  if (modal) {
+    modal.style.display = "flex";
+    setForgotRole(_currentAuthRole || "employee");
+    lucide.createIcons({ nodes: [modal] });
+  }
+}
+
+function closeForgotPasswordModal() {
+  const modal = document.getElementById("forgot-password-modal");
+  if (modal) modal.style.display = "none";
+}
+
+function setForgotRole(role) {
+  _currentForgotRole = role;
+  const empBtn = document.getElementById("forgot-role-btn-emp");
+  const userBtn = document.getElementById("forgot-role-btn-user");
+  const label = document.getElementById("forgot-id-label");
+  const backupGroup = document.getElementById("forgot-backup-code-group");
+  const input = document.getElementById("forgot-id-input");
+
+  if (role === "user") {
+    if (userBtn) { userBtn.classList.add("active"); }
+    if (empBtn) { empBtn.classList.remove("active"); }
+    if (label) label.textContent = "Customer ID or Registered Email";
+    if (input) input.placeholder = "e.g. CUST-10001 or email@example.com";
+    if (backupGroup) backupGroup.style.display = "block";
+  } else {
+    if (empBtn) { empBtn.classList.add("active"); }
+    if (userBtn) { userBtn.classList.remove("active"); }
+    if (label) label.textContent = "Employee ID or Corporate Email";
+    if (input) input.placeholder = "e.g. HDFC-AI-101 or email@hdfcbank.com";
+    if (backupGroup) backupGroup.style.display = "none";
+  }
+}
+
 async function submitForgotPassword() {
-  const email = document.getElementById("forgot-email")?.value.trim() || "";
-  const empId = document.getElementById("forgot-empid")?.value.trim() || "";
+  const idInput = document.getElementById("forgot-id-input")?.value.trim() || "";
+  const backupCode = document.getElementById("forgot-backup-code-input")?.value.trim().toUpperCase() || "";
   const newPass = document.getElementById("forgot-new-pass")?.value || "";
   const confirmPass = document.getElementById("forgot-confirm-pass")?.value || "";
 
-  if (!email || !empId || !newPass || !confirmPass) {
-    showToast("Please fill in all fields (Employee ID, Corporate Email, New Password, Confirm Password).", "warn");
+  if (!idInput || !newPass || !confirmPass) {
+    showToast("Please fill in Account ID/Email, New Password, and Confirm Password.", "warn");
+    return;
+  }
+
+  if (_currentForgotRole === "user" && !backupCode) {
+    showToast("Please enter your 6-Digit Backup Recovery Code.", "warn");
     return;
   }
 
@@ -712,24 +756,53 @@ async function submitForgotPassword() {
   }
 
   try {
+    const payload = {
+      employee_id: idInput,
+      email: idInput.includes("@") ? idInput : "",
+      new_password: newPass,
+      backup_code: _currentForgotRole === "user" ? backupCode : null
+    };
+
     const emp = await api("/auth/reset-password", {
       method: "POST",
-      body: JSON.stringify({ employee_id: empId, email: email, new_password: newPass })
+      body: JSON.stringify(payload)
     });
 
-    const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
-    u.empId = emp.employee_id;
-    u.name = emp.full_name;
-    u.email = emp.email;
-    sessionStorage.setItem(USER_KEY, JSON.stringify(u));
-    updateSidebarUser();
-
-    closePasswordModal();
-    logUserAction("PASSWORD_RESET", `Password updated in DB for ${emp.employee_id} (${emp.email})`);
-    showToast(`✅ Password successfully updated for ${emp.employee_id} (${emp.email})!`, "ok");
+    closeForgotPasswordModal();
+    logUserAction("PASSWORD_RESET", `Password reset for ${emp.employee_id} (${emp.email})`);
+    showToast(`✅ Password successfully reset for ${emp.full_name} (${emp.employee_id})! You can now sign in.`, "ok");
   } catch (err) {
     showToast(`❌ Password Reset Failed: ${err.message}`, "bad");
   }
+}
+
+function closeRegSuccessModal() {
+  const modal = document.getElementById("reg-success-modal");
+  if (modal) modal.style.display = "none";
+}
+
+function copyRegBackupCode() {
+  const code = document.getElementById("reg-succ-backup-code")?.textContent.trim() || "";
+  if (code) {
+    navigator.clipboard.writeText(code).then(() => {
+      showToast(`Copied recovery code ${code} to clipboard!`, "ok");
+    }).catch(() => {
+      showToast(`Recovery Code: ${code}`, "info");
+    });
+  }
+}
+
+function openUserProfileModal() {
+  const modal = document.getElementById("password-modal");
+  if (modal) {
+    modal.style.display = "flex";
+    lucide.createIcons({ nodes: [modal] });
+  }
+}
+
+function closePasswordModal() {
+  const modal = document.getElementById("password-modal");
+  if (modal) modal.style.display = "none";
 }
 
 function submitUpdatePassword() {
@@ -875,7 +948,7 @@ if (loginForm) {
         });
 
         const accountRole = document.getElementById("login-account-role")?.value || _currentAuthRole || "employee";
-        const user = { empId: emp.employee_id, name: emp.full_name, role: emp.role, account_role: accountRole, email: emp.email, loginTime: Date.now() };
+        const user = { empId: emp.employee_id, name: emp.full_name, role: emp.role, account_role: accountRole, email: emp.email, backup_code: emp.backup_code, loginTime: Date.now() };
         sessionStorage.setItem(USER_KEY, JSON.stringify(user));
         resetUserSession();
         showApp();
@@ -883,6 +956,21 @@ if (loginForm) {
         bootApp(true);
         logUserAction("USER_REGISTER", `Registered account: ${emp.full_name} (${emp.employee_id})`);
         showToast(`Account registered & verified! Welcome, ${emp.full_name} (${emp.employee_id}).`, "ok");
+
+        // Display Backup Recovery Code Success Modal
+        if (emp.backup_code) {
+          const succModal = document.getElementById("reg-success-modal");
+          const succId = document.getElementById("reg-succ-id");
+          const succEmail = document.getElementById("reg-succ-email");
+          const succCode = document.getElementById("reg-succ-backup-code");
+          if (succId) succId.textContent = emp.employee_id;
+          if (succEmail) succEmail.textContent = emp.email;
+          if (succCode) succCode.textContent = emp.backup_code;
+          if (succModal) {
+            succModal.style.display = "flex";
+            lucide.createIcons({ nodes: [succModal] });
+          }
+        }
       } catch (err) {
         showToast(`❌ Registration Failed: ${err.message}`, "bad");
       }

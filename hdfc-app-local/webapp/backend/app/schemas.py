@@ -193,6 +193,7 @@ class EmployeePasswordResetRequest(BaseModel):
     employee_id: str
     email: str
     new_password: str
+    backup_code: Optional[str] = None
 
 
 class EmployeeOut(BaseModel):
@@ -203,6 +204,7 @@ class EmployeeOut(BaseModel):
     role: str
     department: str
     session_token: Optional[str] = None
+    backup_code: Optional[str] = None
 
     class Config:
         from_attributes = True

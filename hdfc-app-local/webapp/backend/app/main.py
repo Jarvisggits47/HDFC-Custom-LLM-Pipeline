@@ -1012,12 +1012,15 @@ def register_employee(payload: schemas.EmployeeRegisterRequest, db: Session = De
         if len(parts) == 2:
             raw_id = f"HDFC-{parts[0]}-{parts[1]}"
 
+    backup_code = f"SEC-{random.randint(100000, 999999)}"
     emp = db.query(models.Employee).filter(models.Employee.employee_id == raw_id).first()
     if emp:
         emp.full_name = payload.full_name
         emp.email = payload.email
         emp.role = payload.role
         emp.password = payload.password
+        if not emp.backup_code:
+            emp.backup_code = backup_code
     else:
         emp = models.Employee(
             id=f"emp-{uuid.uuid4().hex[:8]}",
@@ -1025,8 +1028,9 @@ def register_employee(payload: schemas.EmployeeRegisterRequest, db: Session = De
             full_name=payload.full_name,
             email=payload.email,
             role=payload.role,
-            department="Enterprise AI",
-            password=payload.password
+            department="Enterprise AI" if payload.role != "user" else "Banking Customer",
+            password=payload.password,
+            backup_code=backup_code
         )
         db.add(emp)
 
@@ -1037,15 +1041,21 @@ def register_employee(payload: schemas.EmployeeRegisterRequest, db: Session = De
 
 @app.post("/api/auth/reset-password", response_model=schemas.EmployeeOut)
 def reset_password(payload: schemas.EmployeePasswordResetRequest, db: Session = Depends(get_db)):
-    raw_id = payload.employee_id.strip().upper()
+    raw_id = payload.employee_id.strip().upper() if payload.employee_id else ""
+    raw_email = payload.email.strip() if payload.email else ""
+    raw_code = payload.backup_code.strip().upper() if payload.backup_code else ""
     
     emp = db.query(models.Employee).filter(
         (models.Employee.employee_id == raw_id) |
-        (models.Employee.email.ilike(payload.email.strip()))
+        (models.Employee.email.ilike(raw_email))
     ).first()
 
     if not emp:
-        raise HTTPException(404, f"Employee ID '{payload.employee_id}' or email '{payload.email}' not found.")
+        raise HTTPException(404, f"Account matching '{payload.employee_id or payload.email}' not found.")
+
+    if raw_code:
+        if not emp.backup_code or emp.backup_code.strip().upper() != raw_code:
+            raise HTTPException(400, "Invalid Backup Recovery Code. Please verify your 6-digit recovery code.")
 
     emp.password = payload.new_password
     if payload.email:
