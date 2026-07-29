@@ -792,7 +792,7 @@ def generate_temp_passcode(request: Request, db: Session = Depends(get_db)):
         employee_id=emp_id,
         user_name="Security Control",
         action="TEMP_PASSCODE_GENERATED",
-        details=f"Generated 15-min temporary passcode {passcode_str} for remote login",
+        details="Generated 15-min temporary passcode (TMP-******) for remote login",
     )
     db.add(log)
     db.commit()
@@ -1121,9 +1121,14 @@ def verify_employee(payload: schemas.EmployeeVerifyRequest, db: Session = Depend
 @app.get("/api/audit-logs", response_model=list[schemas.AuditLogOut])
 def list_audit_logs(request: Request, db: Session = Depends(get_db)):
     emp_id = get_emp_id_from_req(request)
-    return db.query(models.AuditLog).filter(
+    logs = db.query(models.AuditLog).filter(
         models.AuditLog.employee_id == emp_id
     ).order_by(models.AuditLog.created_at.desc()).limit(50).all()
+
+    for log in logs:
+        if log.details:
+            log.details = re.sub(r'TMP-[A-Z0-9]{6}', 'TMP-******', log.details)
+    return logs
 
 
 @app.post("/api/audit-logs", response_model=schemas.AuditLogOut)
