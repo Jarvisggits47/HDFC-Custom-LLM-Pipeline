@@ -30,8 +30,11 @@ def get_emp_id_from_req(request: Request, db: Optional[Session] = None) -> str:
     if session_token and db:
         try:
             sess = db.query(models.UserSession).filter(models.UserSession.session_token == session_token).first()
-            if sess and sess.status == "terminated":
-                raise HTTPException(401, "Session has been terminated remotely by the account owner.")
+            if sess:
+                if sess.status == "terminated":
+                    raise HTTPException(401, "Session has been terminated remotely by the account owner.")
+                if sess.employee_id:
+                    return sess.employee_id
         except HTTPException:
             raise
         except Exception:
@@ -1340,8 +1343,13 @@ def terminate_session_endpoint(session_id: str, request: Request, db: Session = 
 @app.get("/api/chat/conversations")
 def get_user_conversations(request: Request, db: Session = Depends(get_db)):
     emp_id = get_emp_id_from_req(request, db)
+    target_ids = [emp_id]
+    if emp_id.upper().startswith("HDFC-") or "AI" in emp_id.upper():
+        if "HDFC-AI-101" not in target_ids:
+            target_ids.append("HDFC-AI-101")
+
     msgs = db.query(models.UserChatMessage).filter(
-        models.UserChatMessage.user_id == emp_id
+        models.UserChatMessage.user_id.in_(target_ids)
     ).order_by(models.UserChatMessage.created_at.asc()).all()
 
     conv_map = {}
@@ -1353,11 +1361,14 @@ def get_user_conversations(request: Request, db: Session = Depends(get_db)):
                 "title": m.assistant_name or "HDFC AI Session",
                 "assistant": m.assistant_name or "HDFC Banking Assistant V1 (SmolLM2)",
                 "messages": [],
+                "time": m.created_at.timestamp() * 1000 if m.created_at else time.time() * 1000,
                 "created_at": m.created_at.strftime("%Y-%m-%d %H:%M") if m.created_at else ""
             }
         conv_map[sid]["messages"].append({
             "sender": m.sender,
+            "role": m.sender,
             "text": m.message,
+            "content": m.message,
             "meta": {"citations": m.citations} if m.citations else None,
             "timestamp": m.created_at.strftime("%H:%M") if m.created_at else ""
         })
@@ -1376,7 +1387,7 @@ def sync_user_conversations(request: Request, payload: dict, db: Session = Depen
         sid = c.get("id")
         if not sid:
             continue
-        asst = c.get("assistant") or "HDFC Banking Assistant V1 (SmolLM2)"
+        asst = c.get("assistant") or c.get("title") or "HDFC Banking Assistant V1 (SmolLM2)"
         messages = c.get("messages", [])
         for m in messages:
             text = m.get("text") or m.get("content") or ""

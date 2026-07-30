@@ -2943,12 +2943,14 @@ function formatCompactCitations(citations) {
 }
 
 function renderMessageHTML(m) {
-  if (m.role === "user") {
+  const isUser = (m.role === "user" || m.sender === "user");
+  const contentText = m.content || m.text || "";
+  if (isUser) {
     const initial = (JSON.parse(sessionStorage.getItem(USER_KEY) || "{}").name || "A")[0].toUpperCase();
-    return `<div class="msg user"><div class="msg-avatar">${esc(initial)}</div><div class="msg-bubble">${esc(m.content)}</div></div>`;
+    return `<div class="msg user"><div class="msg-avatar">${esc(initial)}</div><div class="msg-bubble">${esc(contentText)}</div></div>`;
   }
   const meta = m.meta || {};
-  let content = trimIncomplete(m.content || "");
+  let content = trimIncomplete(m.content || m.text || "");
   let noteHTML = "";
   if (content.includes("__AMBER_NOTE_BOX__")) {
     content = content.replace("__AMBER_NOTE_BOX__", "").trimEnd();
