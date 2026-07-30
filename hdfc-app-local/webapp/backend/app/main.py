@@ -1336,6 +1336,76 @@ def terminate_session_endpoint(session_id: str, request: Request, db: Session = 
     return {"status": "ok", "message": f"Terminated session '{session_id}'."}
 
 
+# ----------------------------------------------------------------- CENTRAL CHAT SYNC (POSTGRESQL DB)
+@app.get("/api/chat/conversations")
+def get_user_conversations(request: Request, db: Session = Depends(get_db)):
+    emp_id = get_emp_id_from_req(request, db)
+    msgs = db.query(models.UserChatMessage).filter(
+        models.UserChatMessage.user_id == emp_id
+    ).order_by(models.UserChatMessage.created_at.asc()).all()
+
+    conv_map = {}
+    for m in msgs:
+        sid = m.session_id
+        if sid not in conv_map:
+            conv_map[sid] = {
+                "id": sid,
+                "title": m.assistant_name or "HDFC AI Session",
+                "assistant": m.assistant_name or "HDFC Banking Assistant V1 (SmolLM2)",
+                "messages": [],
+                "created_at": m.created_at.strftime("%Y-%m-%d %H:%M") if m.created_at else ""
+            }
+        conv_map[sid]["messages"].append({
+            "sender": m.sender,
+            "text": m.message,
+            "meta": {"citations": m.citations} if m.citations else None,
+            "timestamp": m.created_at.strftime("%H:%M") if m.created_at else ""
+        })
+
+    conv_list = list(conv_map.values())
+    conv_list.reverse()
+    return conv_list
+
+
+@app.post("/api/chat/conversations")
+def sync_user_conversations(request: Request, payload: dict, db: Session = Depends(get_db)):
+    emp_id = get_emp_id_from_req(request, db)
+    convs = payload.get("conversations", [])
+
+    for c in convs:
+        sid = c.get("id")
+        if not sid:
+            continue
+        asst = c.get("assistant") or "HDFC Banking Assistant V1 (SmolLM2)"
+        messages = c.get("messages", [])
+        for m in messages:
+            text = m.get("text") or m.get("content") or ""
+            sender = m.get("sender") or m.get("role") or "user"
+            if not text:
+                continue
+            
+            exists = db.query(models.UserChatMessage).filter(
+                models.UserChatMessage.user_id == emp_id,
+                models.UserChatMessage.session_id == sid,
+                models.UserChatMessage.sender == sender,
+                models.UserChatMessage.message == text
+            ).first()
+
+            if not exists:
+                c_msg = models.UserChatMessage(
+                    id=new_id("chat"),
+                    user_id=emp_id,
+                    session_id=sid,
+                    assistant_name=asst,
+                    sender=sender,
+                    message=text,
+                    citations=m.get("meta", {}).get("citations", []) if isinstance(m.get("meta"), dict) else []
+                )
+                db.add(c_msg)
+    db.commit()
+    return {"status": "ok"}
+
+
 @app.get("/api/health")
 def health():
     return local_llm.model_status()

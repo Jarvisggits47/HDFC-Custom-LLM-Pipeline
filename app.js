@@ -2735,19 +2735,51 @@ function loadConversations() {
 }
 function saveConversations(convs) {
   try { localStorage.setItem(getChatKey(), JSON.stringify(convs.slice(-40))); } catch (_) { }
+  api("/chat/conversations", {
+    method: "POST",
+    body: JSON.stringify({ conversations: convs.slice(-20) })
+  }).catch(() => {});
 }
+
+async function syncBackendConversations() {
+  try {
+    const remoteConvs = await api("/chat/conversations");
+    if (Array.isArray(remoteConvs) && remoteConvs.length > 0) {
+      const key = getChatKey();
+      const localConvs = loadConversations();
+      const mergedMap = new Map();
+
+      for (const r of remoteConvs) {
+        if (r.id) mergedMap.set(r.id, r);
+      }
+      for (const l of localConvs) {
+        if (l.id) {
+          const r = mergedMap.get(l.id);
+          if (!r || (l.messages && l.messages.length > (r.messages ? r.messages.length : 0))) {
+            mergedMap.set(l.id, l);
+          }
+        }
+      }
+
+      const mergedList = Array.from(mergedMap.values());
+      try { localStorage.setItem(key, JSON.stringify(mergedList.slice(-40))); } catch (_) {}
+      renderConversationListUI();
+    }
+  } catch (_) {}
+}
+
 function getConv(id) { return loadConversations().find(c => c.id === id); }
 
 function saveConversation(id, messages) {
   const convs = loadConversations();
   const idx = convs.findIndex(c => c.id === id);
-  const title = (messages.find(m => m.role === "user")?.content || "New chat").slice(0, 60);
+  const title = (messages.find(m => m.role === "user" || m.sender === "user")?.content || messages.find(m => m.sender === "user")?.text || "New chat").slice(0, 60);
   const conv = { id, title, messages, time: Date.now() };
   if (idx >= 0) convs[idx] = conv; else convs.push(conv);
   saveConversations(convs);
 }
 
-function renderConversationList() {
+function renderConversationListUI() {
   const el = document.getElementById("conversation-list");
   if (!el) return;
   const convs = loadConversations().slice().reverse();
@@ -2758,10 +2790,15 @@ function renderConversationList() {
   el.innerHTML = convs.map(c => `
     <div class="conv-item ${c.id === currentConvId ? "active" : ""}" onclick="openConversation('${c.id}')">
       <div class="conv-preview">${esc(c.title)}</div>
-      <div class="conv-time">${new Date(c.time).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</div>
+      <div class="conv-time">${c.time ? new Date(c.time).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}</div>
       <button class="conv-del" onclick="event.stopPropagation();deleteConversation('${c.id}')" title="Delete"><i data-lucide="trash-2"></i></button>
     </div>`).join("");
   lucide.createIcons({ nodes: [el] });
+}
+
+function renderConversationList() {
+  renderConversationListUI();
+  syncBackendConversations();
 }
 
 function newConversation() {
