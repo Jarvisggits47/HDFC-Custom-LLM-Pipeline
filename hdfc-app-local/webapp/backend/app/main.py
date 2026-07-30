@@ -1098,6 +1098,44 @@ def update_profile(payload: schemas.EmployeeProfileUpdateRequest, db: Session = 
     return emp
 
 
+@app.post("/api/auth/register", response_model=schemas.EmployeeOut)
+def register_employee(payload: schemas.EmployeeRegisterRequest, db: Session = Depends(get_db)):
+    emp_id = payload.employee_id.strip().upper()
+    email = payload.email.strip().lower()
+
+    existing = db.query(models.Employee).filter(
+        (models.Employee.employee_id == emp_id) |
+        (models.Employee.email.ilike(email))
+    ).first()
+
+    if existing:
+        raise HTTPException(400, f"Account '{emp_id}' is already registered in the HDFC directory. Please sign in.")
+
+    backup_code = f"SEC-{uuid.uuid4().hex[:6].upper()}"
+    new_emp = models.Employee(
+        id=new_id("emp"),
+        employee_id=emp_id,
+        full_name=payload.full_name.strip(),
+        email=email,
+        role=payload.role.strip() if payload.role else "employee",
+        password=payload.password.strip() if payload.password else "Hdfc@2026",
+        backup_code=backup_code
+    )
+    db.add(new_emp)
+
+    log = models.AuditLog(
+        id=new_id("log"),
+        employee_id=emp_id,
+        user_name=payload.full_name.strip(),
+        action="EMPLOYEE_REGISTERED",
+        details=f"Registered new employee account: {payload.full_name} ({emp_id})"
+    )
+    db.add(log)
+    db.commit()
+    db.refresh(new_emp)
+    return new_emp
+
+
 @app.post("/api/auth/reset-password", response_model=schemas.EmployeeOut)
 def reset_password(payload: schemas.EmployeePasswordResetRequest, db: Session = Depends(get_db)):
     raw_id = payload.employee_id.strip() if payload.employee_id else ""

@@ -1402,6 +1402,13 @@ if (loginForm) {
       const finalRole = isCustomer ? "user" : roleSel;
       const backupCode = `SEC-${Math.floor(100000 + Math.random() * 900000)}`;
 
+      // Guard: Check if Employee ID or Email is already registered locally
+      const existingLocally = findLocalAccount(finalEmpId) || findLocalAccount(usernameInp);
+      if (existingLocally && !isCustomer) {
+        showToast(`❌ Registration Failed: Account ID '${finalEmpId}' is already registered. Please Sign In.`, "bad");
+        return;
+      }
+
       let emp = null;
       try {
         emp = await api("/auth/register", {
@@ -1415,6 +1422,10 @@ if (loginForm) {
           })
         });
       } catch (err) {
+        if (err.message && (err.message.includes("already registered") || err.message.includes("400"))) {
+          showToast(`❌ Registration Failed: ${err.message}`, "bad");
+          return;
+        }
         console.warn("Backend registration API offline, completing registration locally:", err);
         emp = {
           employee_id: finalEmpId,
@@ -1426,6 +1437,7 @@ if (loginForm) {
         };
       }
 
+      if (!emp || !emp.employee_id) return;
       if (!emp.backup_code) emp.backup_code = backupCode;
 
       const user = {
@@ -1448,17 +1460,19 @@ if (loginForm) {
       logUserAction("USER_REGISTER", `Registered account: ${emp.full_name} (${emp.employee_id})`);
       showToast(`Account registered & verified! Welcome, ${emp.full_name} (${emp.employee_id}).`, "ok");
 
-      // Display Backup Recovery Code Success Modal
-      const succModal = document.getElementById("reg-success-modal");
-      const succId = document.getElementById("reg-succ-id");
-      const succEmail = document.getElementById("reg-succ-email");
-      const succCode = document.getElementById("reg-succ-backup-code");
-      if (succId) succId.textContent = emp.employee_id;
-      if (succEmail) succEmail.textContent = emp.email;
-      if (succCode) succCode.textContent = emp.backup_code;
-      if (succModal) {
-        succModal.style.display = "flex";
-        lucide.createIcons({ nodes: [succModal] });
+      // Display Backup Recovery Code Success Modal ONLY for Customer Users
+      if (isCustomer) {
+        const succModal = document.getElementById("reg-success-modal");
+        const succId = document.getElementById("reg-succ-id");
+        const succEmail = document.getElementById("reg-succ-email");
+        const succCode = document.getElementById("reg-succ-backup-code");
+        if (succId) succId.textContent = emp.employee_id;
+        if (succEmail) succEmail.textContent = emp.email;
+        if (succCode) succCode.textContent = emp.backup_code;
+        if (succModal) {
+          succModal.style.display = "flex";
+          lucide.createIcons({ nodes: [succModal] });
+        }
       }
     } else {
       if (!usernameInp) {
