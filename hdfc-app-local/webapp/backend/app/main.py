@@ -271,7 +271,8 @@ def create_dataset(request: Request, payload: schemas.DatasetCreate, db: Session
 
 @app.get("/api/datasets", response_model=list[schemas.DatasetOut])
 def list_datasets(request: Request, db: Session = Depends(get_db)):
-    datasets = db.query(models.Dataset).order_by(models.Dataset.created_at.desc()).all()
+    emp_id = get_emp_id_from_req(request, db)
+    datasets = db.query(models.Dataset).filter(models.Dataset.owner_employee_id == emp_id).order_by(models.Dataset.created_at.desc()).all()
     out = []
     for ds in datasets:
         item = schemas.DatasetOut.model_validate(ds)
@@ -375,7 +376,8 @@ def create_run(request: Request, payload: schemas.RunCreate, db: Session = Depen
 
 @app.get("/api/runs", response_model=list[schemas.RunOut])
 def list_runs(request: Request, db: Session = Depends(get_db)):
-    return db.query(models.Run).order_by(models.Run.created_at.desc()).all()
+    emp_id = get_emp_id_from_req(request, db)
+    return db.query(models.Run).filter(models.Run.owner_employee_id == emp_id).order_by(models.Run.created_at.desc()).all()
 
 
 @app.get("/api/runs/{run_id}", response_model=schemas.RunOut)
@@ -420,7 +422,8 @@ def create_evaluation(request: Request, payload: schemas.EvaluationCreate, db: S
 
 @app.get("/api/evaluations", response_model=list[schemas.EvaluationOut])
 def list_evaluations(request: Request, db: Session = Depends(get_db)):
-    return db.query(models.Evaluation).order_by(models.Evaluation.created_at.desc()).all()
+    emp_id = get_emp_id_from_req(request, db)
+    return db.query(models.Evaluation).filter(models.Evaluation.owner_employee_id == emp_id).order_by(models.Evaluation.created_at.desc()).all()
 
 
 @app.get("/api/evaluations/{evaluation_id}", response_model=schemas.EvaluationOut)
@@ -448,7 +451,7 @@ def cancel_evaluation(evaluation_id: str, db: Session = Depends(get_db)):
 # ------------------------------------------------------------------ registry
 @app.post("/api/registry", response_model=schemas.RegistryOut)
 def register_model(request: Request, payload: schemas.RegistryCreate, db: Session = Depends(get_db)):
-    emp_id = get_emp_id_from_req(request)
+    emp_id = get_emp_id_from_req(request, db)
     run = db.query(models.Run).filter(models.Run.id == payload.run_id).first()
     ev = db.query(models.Evaluation).filter(models.Evaluation.id == payload.evaluation_id).first()
     if not run or not ev:
@@ -494,12 +497,13 @@ def register_model(request: Request, payload: schemas.RegistryCreate, db: Sessio
 
 @app.get("/api/registry", response_model=list[schemas.RegistryOut])
 def list_registry(request: Request, db: Session = Depends(get_db)):
-    return db.query(models.ModelRegistryEntry).order_by(models.ModelRegistryEntry.created_at.desc()).all()
+    emp_id = get_emp_id_from_req(request, db)
+    return db.query(models.ModelRegistryEntry).filter(models.ModelRegistryEntry.owner_employee_id == emp_id).order_by(models.ModelRegistryEntry.created_at.desc()).all()
 
 
 @app.post("/api/registry/{model_id}/promote", response_model=schemas.DeploymentOut)
 def promote_model(request: Request, model_id: str, db: Session = Depends(get_db)):
-    emp_id = get_emp_id_from_req(request)
+    emp_id = get_emp_id_from_req(request, db)
     entry = db.query(models.ModelRegistryEntry).filter(models.ModelRegistryEntry.id == model_id).first()
     if not entry:
         raise HTTPException(404, "model not found")
@@ -526,7 +530,8 @@ def promote_model(request: Request, model_id: str, db: Session = Depends(get_db)
 # ---------------------------------------------------------------- deployments
 @app.get("/api/deployments", response_model=list[schemas.DeploymentOut])
 def list_deployments(request: Request, db: Session = Depends(get_db)):
-    return db.query(models.Deployment).order_by(models.Deployment.created_at.desc()).all()
+    emp_id = get_emp_id_from_req(request, db)
+    return db.query(models.Deployment).filter(models.Deployment.owner_employee_id == emp_id).order_by(models.Deployment.created_at.desc()).all()
 
 
 @app.post("/api/deployments/{deployment_id}/expand", response_model=schemas.DeploymentOut)
