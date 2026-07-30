@@ -1000,6 +1000,8 @@ async function openUserProfileModal() {
   }
 }
 
+let _activeSessionsPollTimer = null;
+
 function switchProfileTab(tab) {
   const btnPass = document.getElementById("prof-tab-pass");
   const btnRec = document.getElementById("prof-tab-recovery");
@@ -1009,6 +1011,11 @@ function switchProfileTab(tab) {
   const panelRec = document.getElementById("prof-panel-recovery");
   const panelTemp = document.getElementById("prof-panel-temp");
   const updateBtn = document.getElementById("prof-update-pass-btn");
+
+  if (_activeSessionsPollTimer) {
+    clearInterval(_activeSessionsPollTimer);
+    _activeSessionsPollTimer = null;
+  }
 
   if (tab === "recovery") {
     if (btnRec) btnRec.classList.add("active");
@@ -1030,6 +1037,7 @@ function switchProfileTab(tab) {
     if (updateBtn) updateBtn.style.display = "none";
 
     renderActiveSessionsList();
+    _activeSessionsPollTimer = setInterval(renderActiveSessionsList, 4000);
   } else {
     if (btnPass) btnPass.classList.add("active");
     if (btnRec) btnRec.classList.remove("active");

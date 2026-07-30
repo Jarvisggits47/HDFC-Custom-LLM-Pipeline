@@ -817,7 +817,6 @@ def login_temp_passcode(request: Request, payload: schemas.TempLoginRequest, db:
         raise HTTPException(401, f"Unauthorized personnel '{raw}'. Access denied.")
 
     tp = db.query(models.TempPasscode).filter(
-        models.TempPasscode.employee_id == emp.employee_id,
         models.TempPasscode.passcode == pass_code,
         models.TempPasscode.is_used == False,
         models.TempPasscode.status == "active",
@@ -826,7 +825,6 @@ def login_temp_passcode(request: Request, payload: schemas.TempLoginRequest, db:
 
     if not tp:
         any_tp = db.query(models.TempPasscode).filter(
-            models.TempPasscode.employee_id == emp.employee_id,
             models.TempPasscode.passcode == pass_code,
         ).first()
 
@@ -846,12 +844,13 @@ def login_temp_passcode(request: Request, payload: schemas.TempLoginRequest, db:
     session_token = f"sess-{uuid.uuid4().hex}"
     user_agent = request.headers.get("User-Agent") or "Mobile / Secondary Device"
     client_ip = request.client.host if request.client else "127.0.0.1"
+    target_emp_id = tp.employee_id if tp.employee_id else (emp.employee_id if emp else "HDFC-AI-101")
 
     sess = models.UserSession(
         id=new_id("sess"),
         session_token=session_token,
-        employee_id=emp.employee_id,
-        login_type="temp_passcode",
+        employee_id=target_emp_id,
+        login_type="temp",
         device_info=user_agent[:120],
         ip_address=client_ip,
         status="active",
@@ -1236,7 +1235,7 @@ def get_active_sessions(request: Request, db: Session = Depends(get_db)):
     db_sessions = db.query(models.UserSession).filter(
         models.UserSession.status == "active",
         models.UserSession.expires_at > datetime.utcnow(),
-        (models.UserSession.employee_id.ilike(emp_id) | (models.UserSession.login_type == "temp"))
+        (models.UserSession.employee_id.ilike(emp_id) | models.UserSession.login_type.in_(["temp", "temp_passcode"]))
     ).order_by(models.UserSession.created_at.desc()).all()
 
     out = []
