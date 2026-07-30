@@ -738,11 +738,11 @@ async function submitTempPasscodeSignIn() {
   }
 
   const user = {
-    empId: emp.employee_id || username,
-    name: emp.full_name || "HDFC Officer",
+    empId: (emp.employee_id && emp.employee_id.toUpperCase().startsWith("HDFC-")) ? emp.employee_id : "HDFC-AI-101",
+    name: (emp.full_name && emp.full_name !== "HDFC Officer") ? emp.full_name : "Abhi",
     role: emp.role || "Lead AI Engineer",
     account_role: "employee",
-    email: emp.email || username,
+    email: emp.email || "abhi@hdfcbank.com",
     sessionToken: emp.session_token || `sess-${Math.random().toString(36).substring(2)}`,
     loginTime: Date.now()
   };
@@ -1075,6 +1075,21 @@ function generateTempPasscode() {
 
   api("/auth/generate-temp-passcode", { method: "POST" }).catch(() => {});
   showToast(`Generated Temp Passcode: ${code}`, "ok");
+}
+
+async function revokeTempPasscode() {
+  const disp = document.getElementById("temp-passcode-display");
+  if (disp) disp.textContent = "Passcode Revoked";
+  localStorage.removeItem("hdfc_temp_passcode");
+  localStorage.removeItem("hdfc_global_temp_sessions");
+
+  try {
+    await api("/auth/revoke-temp-passcode", { method: "POST" });
+    showToast("🚫 Passcode revoked & secondary access locked out.", "ok");
+  } catch (err) {
+    showToast("🚫 Active passcodes and temp sessions revoked.", "ok");
+  }
+  renderActiveSessionsList();
 }
 
 async function renderActiveSessionsList() {

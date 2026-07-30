@@ -803,6 +803,33 @@ def generate_temp_passcode(request: Request, db: Session = Depends(get_db)):
     return out
 
 
+@app.post("/api/auth/revoke-temp-passcode")
+def revoke_temp_passcode(request: Request, db: Session = Depends(get_db)):
+    emp_id = get_emp_id_from_req(request, db)
+
+    db.query(models.TempPasscode).filter(
+        models.TempPasscode.employee_id == emp_id,
+        models.TempPasscode.status == "active"
+    ).update({"status": "revoked", "is_used": True})
+
+    db.query(models.UserSession).filter(
+        models.UserSession.employee_id == emp_id,
+        models.UserSession.login_type.in_(["temp", "temp_passcode"])
+    ).update({"status": "terminated"})
+
+    log = models.AuditLog(
+        id=new_id("log"),
+        employee_id=emp_id,
+        user_name="Security Control",
+        action="TEMP_PASSCODE_REVOKED",
+        details="Revoked active temporary passcode and locked out secondary access",
+    )
+    db.add(log)
+    db.commit()
+
+    return {"status": "ok", "message": "Passcode revoked and secondary access locked out successfully."}
+
+
 @app.post("/api/auth/login-temp-passcode", response_model=schemas.EmployeeOut)
 def login_temp_passcode(request: Request, payload: schemas.TempLoginRequest, db: Session = Depends(get_db)):
     raw = payload.username_or_email.strip()
