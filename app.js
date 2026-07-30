@@ -2713,23 +2713,21 @@ function loadConversations() {
   const key = getChatKey();
   let data = localStorage.getItem(key);
 
-  // Migration: Only migrate legacy hdfc_conversations for Admin / Employee accounts!
   if (!data && !isCustomer) {
-    const oldData = localStorage.getItem("hdfc_conversations");
-    if (oldData) {
-      try {
-        localStorage.setItem(key, oldData);
-        data = oldData;
-      } catch (_) { }
+    const keysToTry = [
+      "hdfc_conversations_HDFC-AI-101",
+      "hdfc_conversations_HDFC-AI-101_Abhi",
+      "hdfc_conversations_HDFC-AI-101_jarvisanand85",
+      "hdfc_conversations"
+    ];
+    for (const k of keysToTry) {
+      const d = localStorage.getItem(k);
+      if (d) {
+        data = d;
+        try { localStorage.setItem(key, d); } catch (_) {}
+        break;
+      }
     }
-  }
-
-  // Cleanup: If a customer key was previously polluted with admin chats, clear it out!
-  if (isCustomer && data && data.includes("my debit card go")) {
-    try {
-      localStorage.removeItem(key);
-      data = null;
-    } catch (_) { }
   }
 
   try { return JSON.parse(data || "[]"); }
