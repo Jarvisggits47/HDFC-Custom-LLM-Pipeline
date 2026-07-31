@@ -851,8 +851,11 @@ def login_temp_passcode(request: Request, payload: schemas.TempLoginRequest, db:
     if not emp:
         raise HTTPException(401, f"Unauthorized personnel '{raw}'. Access denied.")
 
+    clean_code = pass_code.replace("TMP-", "").strip()
+    full_code = f"TMP-{clean_code}"
+
     tp = db.query(models.TempPasscode).filter(
-        models.TempPasscode.passcode == pass_code,
+        (models.TempPasscode.passcode == full_code) | (models.TempPasscode.passcode == clean_code) | (models.TempPasscode.passcode == pass_code),
         models.TempPasscode.is_used == False,
         models.TempPasscode.status == "active",
         models.TempPasscode.expires_at > datetime.utcnow(),
@@ -860,7 +863,7 @@ def login_temp_passcode(request: Request, payload: schemas.TempLoginRequest, db:
 
     if not tp:
         any_tp = db.query(models.TempPasscode).filter(
-            models.TempPasscode.passcode == pass_code,
+            (models.TempPasscode.passcode == full_code) | (models.TempPasscode.passcode == clean_code) | (models.TempPasscode.passcode == pass_code)
         ).first()
 
         if any_tp:

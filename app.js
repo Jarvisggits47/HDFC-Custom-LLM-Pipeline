@@ -1042,16 +1042,30 @@ function switchProfileTab(tab) {
   }
 }
 
-function generateTempPasscode() {
-  const rawNum = Math.floor(100000 + Math.random() * 900000);
-  const code = `TMP-${rawNum}`;
+async function generateTempPasscode() {
   const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
   const disp = document.getElementById("temp-passcode-display");
+
+  let code = "";
+  try {
+    const res = await api("/auth/generate-temp-passcode", { method: "POST" });
+    if (res && res.passcode) {
+      code = res.passcode;
+    }
+  } catch (err) {
+    console.warn("Backend generate-temp-passcode API error:", err);
+  }
+
+  if (!code) {
+    const rawNum = Math.floor(100000 + Math.random() * 900000);
+    code = `TMP-${rawNum}`;
+  }
+
   if (disp) disp.textContent = `${code} (Expires in 15m)`;
 
   const itemObj = {
     code: code,
-    rawCode: String(rawNum),
+    rawCode: code.replace("TMP-", ""),
     empId: u.empId || u.employee_id || "",
     email: u.email || "",
     name: u.name || "HDFC Officer",
@@ -1065,7 +1079,6 @@ function generateTempPasscode() {
   localStorage.setItem("hdfc_temp_passcodes_list", JSON.stringify(list));
   localStorage.setItem("hdfc_temp_passcode", JSON.stringify(itemObj));
 
-  api("/auth/generate-temp-passcode", { method: "POST" }).catch(() => {});
   showToast(`Generated Temp Passcode: ${code}`, "ok");
 }
 
