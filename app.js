@@ -2763,23 +2763,8 @@ async function syncBackendConversations() {
         validConvs = remoteConvs.filter(c => c.title !== "my debit card go..." && c.title !== "What is the mini...");
       }
 
-      const localConvs = loadConversations();
-      const mergedMap = new Map();
-
-      for (const r of validConvs) {
-        if (r.id) mergedMap.set(r.id, r);
-      }
-      for (const l of localConvs) {
-        if (l.id) {
-          const r = mergedMap.get(l.id);
-          if (!r || (l.messages && l.messages.length > (r.messages ? r.messages.length : 0))) {
-            mergedMap.set(l.id, l);
-          }
-        }
-      }
-
-      const mergedList = Array.from(mergedMap.values());
-      try { localStorage.setItem(key, JSON.stringify(mergedList.slice(-40))); } catch (_) {}
+      // Server is single source of truth: write server chats directly to key
+      try { localStorage.setItem(key, JSON.stringify(validConvs.slice(-40))); } catch (_) {}
       renderConversationListUI();
     }
   } catch (_) {}
