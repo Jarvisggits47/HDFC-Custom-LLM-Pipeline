@@ -1081,12 +1081,7 @@ def register_employee(payload: schemas.EmployeeRegisterRequest, db: Session = De
     ).first()
 
     if emp:
-        emp.full_name = payload.full_name
-        emp.email = payload.email.strip()
-        emp.role = payload.role
-        emp.password = payload.password
-        if not emp.backup_code:
-            emp.backup_code = backup_code
+        raise HTTPException(400, f"Account '{payload.email}' or ID '{raw_id}' is already registered in the HDFC directory. Please sign in.")
     else:
         emp = models.Employee(
             id=f"emp-{uuid.uuid4().hex[:8]}",
