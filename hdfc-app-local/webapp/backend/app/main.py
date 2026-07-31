@@ -883,14 +883,12 @@ def login_temp_passcode(request: Request, payload: schemas.TempLoginRequest, db:
             password="",
             backup_code=""
         )
+        db.add(emp)
+        db.commit()
 
-    raw_clean = raw.lower()
-    emp_id_clean = (emp.employee_id or "").lower()
-    emp_email_clean = (emp.email or "").lower()
-    tp_emp_clean = (tp.employee_id or "").lower()
-
-    if raw_clean not in (emp_id_clean, emp_email_clean, tp_emp_clean) and emp_id_clean not in raw_clean and emp_email_clean not in raw_clean and tp_emp_clean not in raw_clean:
-        raise HTTPException(401, f"This temporary passcode was generated for a different account. Access denied for '{raw}'.")
+    if "@" in raw and not emp.email:
+        emp.email = raw.strip().lower()
+        db.commit()
 
     tp.is_used = True
     tp.status = "used"
