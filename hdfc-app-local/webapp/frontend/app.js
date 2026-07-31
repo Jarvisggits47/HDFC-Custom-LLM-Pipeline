@@ -40,7 +40,7 @@ function safe(val, fallback = "—") {
 
 async function api(path, opts = {}) {
   const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
-  const empId = u.empId || "HDFC-AI-101";
+  const empId = u.empId || u.email || u.name || "guest";
   const sessionToken = u.sessionToken || "";
   const customHeaders = opts.headers || {};
 
@@ -2715,7 +2715,7 @@ function getChatKey() {
   const isCustomer = u.account_role === "user" || u.role === "user";
   const userId = isCustomer
     ? (u.empId || u.email || u.name || "customer_guest")
-    : (u.empId || "HDFC-AI-101");
+    : (u.empId || u.email || u.name || "guest_user");
   return `hdfc_conversations_${userId}`;
 }
 
@@ -2723,12 +2723,25 @@ let currentConvId = null;
 
 function loadConversations() {
   const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
+  const currentEmpId = u.empId || u.email || "";
   const key = getChatKey();
   let data = localStorage.getItem(key);
 
-  try { return JSON.parse(data || "[]"); }
-  catch { return []; }
+  let convs = [];
+  try { convs = JSON.parse(data || "[]"); } catch { convs = []; }
+
+  // Auto-purge leaked seed chats for non-HDFC-AI-101 users
+  if (currentEmpId.toUpperCase() !== "HDFC-AI-101" && Array.isArray(convs) && convs.length > 0) {
+    const filtered = convs.filter(c => c.title !== "my debit card go..." && c.title !== "What is the mini...");
+    if (filtered.length !== convs.length) {
+      convs = filtered;
+      try { localStorage.setItem(key, JSON.stringify(convs)); } catch (_) {}
+    }
+  }
+
+  return convs;
 }
+
 function saveConversations(convs) {
   try { localStorage.setItem(getChatKey(), JSON.stringify(convs.slice(-40))); } catch (_) { }
   api("/chat/conversations", {
@@ -2739,13 +2752,21 @@ function saveConversations(convs) {
 
 async function syncBackendConversations() {
   try {
+    const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
+    const currentEmpId = u.empId || u.email || "";
+    const key = getChatKey();
+
     const remoteConvs = await api("/chat/conversations");
-    if (Array.isArray(remoteConvs) && remoteConvs.length > 0) {
-      const key = getChatKey();
+    if (Array.isArray(remoteConvs)) {
+      let validConvs = remoteConvs;
+      if (currentEmpId.toUpperCase() !== "HDFC-AI-101") {
+        validConvs = remoteConvs.filter(c => c.title !== "my debit card go..." && c.title !== "What is the mini...");
+      }
+
       const localConvs = loadConversations();
       const mergedMap = new Map();
 
-      for (const r of remoteConvs) {
+      for (const r of validConvs) {
         if (r.id) mergedMap.set(r.id, r);
       }
       for (const l of localConvs) {
