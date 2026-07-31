@@ -719,30 +719,22 @@ async function submitTempPasscodeSignIn() {
         body: JSON.stringify({ username_or_email: username, passcode: rawPasscode })
       });
     } catch (err) {
-      console.warn("Temp passcode backend error:", err);
-      if (passcodeClean.length >= 5) {
-        emp = {
-          employee_id: username.toUpperCase().startsWith("HDFC-") ? username.toUpperCase() : "HDFC-AI-101",
-          full_name: username.includes("@") ? username.split("@")[0] : (username || "Abhi"),
-          role: "Lead AI Engineer",
-          email: username.includes("@") ? username : "jarvisanand85@gmail.com",
-          session_token: `sess-${Math.random().toString(36).substring(2)}`
-        };
-      }
+      showToast(`❌ Temp Login Failed: ${err.message || "Invalid or expired Temporary Passcode."}`, "bad");
+      return;
     }
   }
 
-  if (!emp) {
+  if (!emp || !emp.employee_id) {
     showToast(`❌ Temp Login Failed: Invalid or expired Temporary Passcode.`, "bad");
     return;
   }
 
   const user = {
-    empId: (emp.employee_id && emp.employee_id.toUpperCase().startsWith("HDFC-")) ? emp.employee_id : "HDFC-AI-101",
-    name: (emp.full_name && emp.full_name !== "HDFC Officer") ? emp.full_name : "Abhi",
+    empId: emp.employee_id,
+    name: emp.full_name || emp.employee_id,
     role: emp.role || "Lead AI Engineer",
     account_role: "employee",
-    email: emp.email || "abhi@hdfcbank.com",
+    email: emp.email || "",
     sessionToken: emp.session_token || `sess-${Math.random().toString(36).substring(2)}`,
     loginTime: Date.now()
   };

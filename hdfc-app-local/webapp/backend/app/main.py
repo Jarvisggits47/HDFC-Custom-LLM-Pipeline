@@ -864,7 +864,9 @@ def login_temp_passcode(request: Request, payload: schemas.TempLoginRequest, db:
         ).first()
 
         if any_tp:
-            if any_tp.is_used or any_tp.status == "used":
+            if any_tp.employee_id and any_tp.employee_id != emp.employee_id:
+                raise HTTPException(401, f"This temporary passcode does not belong to account '{raw}'. Access denied.")
+            elif any_tp.is_used or any_tp.status == "used":
                 raise HTTPException(401, "This temporary passcode has already been used. Please generate a new passcode from your main profile to log in.")
             elif any_tp.status == "revoked":
                 raise HTTPException(401, "This temporary passcode was revoked because a new passcode was generated. Please generate a new passcode from your main profile to log in.")
@@ -872,6 +874,9 @@ def login_temp_passcode(request: Request, payload: schemas.TempLoginRequest, db:
                 raise HTTPException(401, "This temporary passcode has expired (15-minute limit reached). Please generate a new passcode from your main profile to log in.")
 
         raise HTTPException(401, "Invalid temporary passcode. Please generate a new passcode from your main profile to log in.")
+
+    if tp.employee_id and tp.employee_id != emp.employee_id:
+        raise HTTPException(401, f"This temporary passcode was generated for a different account. Access denied for '{raw}'.")
 
     tp.is_used = True
     tp.status = "used"
