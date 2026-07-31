@@ -1388,8 +1388,8 @@ if (loginForm) {
 
       // Guard: Check if Employee ID or Email is already registered locally
       const existingLocally = findLocalAccount(finalEmpId) || findLocalAccount(usernameInp);
-      if (existingLocally && !isCustomer) {
-        showToast(`❌ Registration Failed: Account ID '${finalEmpId}' is already registered. Please Sign In.`, "bad");
+      if (existingLocally) {
+        showToast(`❌ Registration Failed: Account ID or Email '${usernameInp}' is already registered in the HDFC directory. Please Sign In.`, "bad");
         return;
       }
 
@@ -1406,19 +1406,8 @@ if (loginForm) {
           })
         });
       } catch (err) {
-        if (err.message && (err.message.includes("already registered") || err.message.includes("400"))) {
-          showToast(`❌ Registration Failed: ${err.message}`, "bad");
-          return;
-        }
-        console.warn("Backend registration API offline, completing registration locally:", err);
-        emp = {
-          employee_id: finalEmpId,
-          full_name: fullNameInp,
-          email: usernameInp,
-          role: finalRole,
-          password: passwordInp,
-          backup_code: backupCode
-        };
+        showToast(`❌ Registration Failed: ${err.message || "Account is already registered in the HDFC directory. Please Sign In."}`, "bad");
+        return;
       }
 
       if (!emp || !emp.employee_id) return;
@@ -2641,14 +2630,17 @@ async function renderDeployments() {
     lucide.createIcons({ nodes: [list] });
   }
 
-  // Populate playground deployment select — preserve user's current selection
+  // Populate playground deployment select — query ALL global bank deployments across all admins
   const sel = document.getElementById("infer-deployment-select");
   const prevVal = sel ? sel.value : "";
-  const active = deps.filter(d => d.status !== "rolled_back");
   const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
   const isCustomer = u.account_role === "user" || u.role === "user";
 
   if (sel) {
+    let globalDeps = [];
+    try { globalDeps = await api("/deployments?all=true"); } catch { globalDeps = deps; }
+    const active = globalDeps.filter(d => d.status !== "rolled_back");
+
     let options = [];
     if (active.length) {
       options = active.map(d => {
@@ -2657,18 +2649,12 @@ async function renderDeployments() {
           const ver = ep.replace("banking-llm-", "").toUpperCase();
           ep = `HDFC Banking Assistant ${ver}`;
         }
-        return `<option value="${d.id}">🏦 ${esc(ep)}${isCustomer ? '' : ' (' + d.status + ')'}</option>`;
+        const ownerTag = d.owner_employee_id ? ` · ${d.owner_employee_id}` : '';
+        return `<option value="${d.id}">🏦 ${esc(ep)}${isCustomer ? '' : ownerTag + ' (' + d.status + ')'}</option>`;
       });
     } else {
-      let regList = (typeof _registryEntries !== "undefined" && _registryEntries.length) ? _registryEntries : [];
-      let dsList = (typeof _allDatasets !== "undefined" && _allDatasets.length) ? _allDatasets : [];
-
-      if (!regList.length) {
-        try { regList = await api("/registry"); } catch { regList = []; }
-      }
-      if (!dsList.length) {
-        try { dsList = await api("/datasets"); } catch { dsList = []; }
-      }
+      let regList = [];
+      try { regList = await api("/registry?all=true"); } catch { regList = []; }
 
       if (regList.length) {
         options = regList.map(m => {
@@ -2676,8 +2662,6 @@ async function renderDeployments() {
           if (name.startsWith("banking-llm-")) name = `HDFC Banking Assistant ${name.replace("banking-llm-", "").toUpperCase()}`;
           return `<option value="${m.id}">🏦 ${esc(name)}</option>`;
         });
-      } else if (dsList.length) {
-        options = dsList.map(d => `<option value="${d.id}">🏦 ${esc(d.assistant_name || d.name + ' AI')}</option>`);
       } else {
         options = [`<option value="default-asst">🏦 HDFC Banking Assistant v7 (SmolLM2-360M)</option>`];
       }
@@ -2686,7 +2670,7 @@ async function renderDeployments() {
     options.unshift(`<option value="">🤖 Base Model — SmolLM2-360M (General AI)</option>`);
 
     sel.innerHTML = options.join("");
-    if (prevVal) sel.value = prevVal;
+    if (prevVal && [...sel.options].some(o => o.value === prevVal)) sel.value = prevVal;
   }
 }
 

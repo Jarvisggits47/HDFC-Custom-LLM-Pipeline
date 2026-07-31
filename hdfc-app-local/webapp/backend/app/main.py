@@ -496,8 +496,10 @@ def register_model(request: Request, payload: schemas.RegistryCreate, db: Sessio
 
 
 @app.get("/api/registry", response_model=list[schemas.RegistryOut])
-def list_registry(request: Request, db: Session = Depends(get_db)):
+def list_registry(request: Request, all: bool = False, db: Session = Depends(get_db)):
     emp_id = get_emp_id_from_req(request, db)
+    if all:
+        return db.query(models.ModelRegistryEntry).order_by(models.ModelRegistryEntry.created_at.desc()).all()
     return db.query(models.ModelRegistryEntry).filter(models.ModelRegistryEntry.owner_employee_id == emp_id).order_by(models.ModelRegistryEntry.created_at.desc()).all()
 
 
@@ -529,8 +531,10 @@ def promote_model(request: Request, model_id: str, db: Session = Depends(get_db)
 
 # ---------------------------------------------------------------- deployments
 @app.get("/api/deployments", response_model=list[schemas.DeploymentOut])
-def list_deployments(request: Request, db: Session = Depends(get_db)):
+def list_deployments(request: Request, all: bool = False, db: Session = Depends(get_db)):
     emp_id = get_emp_id_from_req(request, db)
+    if all:
+        return db.query(models.Deployment).order_by(models.Deployment.created_at.desc()).all()
     return db.query(models.Deployment).filter(models.Deployment.owner_employee_id == emp_id).order_by(models.Deployment.created_at.desc()).all()
 
 
