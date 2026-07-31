@@ -512,8 +512,8 @@ function switchPasswordTab(tab) {
   } else if (tab === 'temp') {
     tempBtn?.classList.add("active");
     if (tempPanel) tempPanel.style.display = "block";
-    loadActiveSessions();
-    _passcodeAutoRefreshTimer = setInterval(loadActiveSessions, 3500);
+    renderActiveSessionsList();
+    _passcodeAutoRefreshTimer = setInterval(renderActiveSessionsList, 3500);
   } else {
     updateBtn?.classList.add("active");
     if (updatePanel) updatePanel.style.display = "block";
