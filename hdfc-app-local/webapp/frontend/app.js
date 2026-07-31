@@ -70,8 +70,7 @@ async function api(path, opts = {}, retries = 2) {
       return await res.json();
     } catch (err) {
       if ((err.name === "TypeError" || err.message === "Failed to fetch") && attempt < retries) {
-        showToast("⏳ Connecting to HDFC Cloud Server (waking up server)...", "info");
-        await new Promise(r => setTimeout(r, 2000));
+        await new Promise(r => setTimeout(r, 1500));
         continue;
       }
       throw err;

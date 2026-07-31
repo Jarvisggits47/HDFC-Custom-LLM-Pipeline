@@ -1068,15 +1068,19 @@ def login_employee(payload: schemas.EmployeeLoginRequest, db: Session = Depends(
 
 @app.post("/api/auth/register", response_model=schemas.EmployeeOut)
 def register_employee(payload: schemas.EmployeeRegisterRequest, db: Session = Depends(get_db)):
-    raw_id = payload.employee_id.strip()
+    raw_id = payload.employee_id.strip().upper()
     if not raw_id.startswith("HDFC-") and not raw_id.startswith("CUST-"):
         parts = raw_id.replace("-", " ").split()
         if len(parts) == 2:
             raw_id = f"HDFC-{parts[0]}-{parts[1]}"
+        elif len(parts) == 1 and parts[0].isdigit():
+            raw_id = f"HDFC-AI-{parts[0]}"
+        elif len(parts) == 1:
+            raw_id = f"HDFC-{parts[0]}"
 
     backup_code = f"SEC-{random.randint(100000, 999999)}"
     emp = db.query(models.Employee).filter(
-        (models.Employee.employee_id == raw_id) |
+        (models.Employee.employee_id.ilike(raw_id)) |
         (models.Employee.email.ilike(payload.email.strip()))
     ).first()
 
