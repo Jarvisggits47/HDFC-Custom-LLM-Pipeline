@@ -1016,7 +1016,7 @@ def login_employee(payload: schemas.EmployeeLoginRequest, db: Session = Depends(
         (models.Employee.email.ilike(raw))
     ).first()
 
-    if not emp:
+    if not emp and "@" not in raw:
         normalized = raw_upper
         if not normalized.startswith("HDFC-"):
             parts = raw_upper.replace("-", " ").split()
@@ -1029,7 +1029,7 @@ def login_employee(payload: schemas.EmployeeLoginRequest, db: Session = Depends(
 
         emp = db.query(models.Employee).filter(models.Employee.employee_id == normalized).first()
 
-    if not emp:
+    if not emp and "@" not in raw:
         num_part = ''.join(filter(str.isdigit, raw))
         if num_part:
             emp = db.query(models.Employee).filter(models.Employee.employee_id.like(f"%{num_part}%")).first()

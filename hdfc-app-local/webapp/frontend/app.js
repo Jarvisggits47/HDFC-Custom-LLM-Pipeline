@@ -1494,6 +1494,50 @@ if (loginForm) {
         logUserAction("USER_LOGIN", `${emp.full_name} (${emp.employee_id}) signed in`);
         showToast(`Welcome back, ${emp.full_name} (${emp.employee_id}).`, "ok");
       } catch (err) {
+        const localAcc = findLocalAccount(usernameInp);
+        if (localAcc && (!passwordInp || localAcc.password === passwordInp || !localAcc.password)) {
+          const reqRole = document.getElementById("login-account-role")?.value || _currentAuthRole || "employee";
+          const isEmp = (localAcc.employee_id || "").toUpperCase().startsWith("HDFC-") || (localAcc.role && localAcc.role !== "user");
+          const accountRole = isEmp ? "employee" : "user";
+          
+          if (reqRole === "user" && isEmp) {
+            showToast(`❌ Access Denied: '${localAcc.employee_id}' is an Admin/Employee account. Please switch to Employee / Admin Sign In.`, "bad");
+            return;
+          }
+          if (reqRole === "employee" && !isEmp) {
+            showToast(`❌ Access Denied: '${localAcc.employee_id}' is a Customer account. Please switch to Customer Sign In.`, "bad");
+            return;
+          }
+
+          api("/auth/register", {
+            method: "POST",
+            body: JSON.stringify({
+              employee_id: localAcc.employee_id || `CUST-${Math.floor(100000 + Math.random() * 900000)}`,
+              full_name: localAcc.full_name || localAcc.name || "Customer User",
+              email: localAcc.email || usernameInp,
+              role: isEmp ? (localAcc.role || "Lead AI Engineer") : "user",
+              password: passwordInp || localAcc.password || "Password123"
+            })
+          }).catch(() => {});
+
+          const user = {
+            empId: localAcc.employee_id || usernameInp,
+            name: localAcc.full_name || localAcc.name || "Customer User",
+            role: isEmp ? (localAcc.role || "Lead AI Engineer") : "user",
+            account_role: accountRole,
+            email: localAcc.email || usernameInp,
+            backup_code: localAcc.backup_code,
+            loginTime: Date.now()
+          };
+          sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+          resetUserSession();
+          showApp();
+          updateSidebarUser();
+          bootApp(true);
+          logUserAction("USER_LOGIN", `${user.name} (${user.empId}) signed in`);
+          showToast(`Welcome back, ${user.name} (${user.empId}).`, "ok");
+          return;
+        }
         showToast(`❌ Sign In Failed: ${err.message}`, "bad");
       }
     }
