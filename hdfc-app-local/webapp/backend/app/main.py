@@ -1386,13 +1386,9 @@ def terminate_session_endpoint(session_id: str, request: Request, db: Session = 
 @app.get("/api/chat/conversations")
 def get_user_conversations(request: Request, db: Session = Depends(get_db)):
     emp_id = get_emp_id_from_req(request, db)
-    target_ids = [emp_id]
-    if emp_id.upper().startswith("HDFC-") or "AI" in emp_id.upper():
-        if "HDFC-AI-101" not in target_ids:
-            target_ids.append("HDFC-AI-101")
 
     msgs = db.query(models.UserChatMessage).filter(
-        models.UserChatMessage.user_id.in_(target_ids)
+        models.UserChatMessage.user_id == emp_id
     ).order_by(models.UserChatMessage.created_at.asc()).all()
 
     conv_map = {}

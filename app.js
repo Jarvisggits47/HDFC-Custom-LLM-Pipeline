@@ -1456,9 +1456,9 @@ if (loginForm) {
       resetUserSession();
       showApp();
       updateSidebarUser();
-      bootApp(true);
-      logUserAction("USER_REGISTER", `Registered account: ${emp.full_name} (${emp.employee_id})`);
       showToast(`Account registered & verified! Welcome, ${emp.full_name} (${emp.employee_id}).`, "ok");
+      setTimeout(() => { bootApp(true); }, 50);
+      logUserAction("USER_REGISTER", `Registered account: ${emp.full_name} (${emp.employee_id})`);
 
       // Display Backup Recovery Code Success Modal ONLY for Customer Users
       if (isCustomer) {
@@ -2723,26 +2723,8 @@ let currentConvId = null;
 
 function loadConversations() {
   const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
-  const isCustomer = u.account_role === "user" || u.role === "user";
   const key = getChatKey();
   let data = localStorage.getItem(key);
-
-  if (!data && !isCustomer) {
-    const keysToTry = [
-      "hdfc_conversations_HDFC-AI-101",
-      "hdfc_conversations_HDFC-AI-101_Abhi",
-      "hdfc_conversations_HDFC-AI-101_jarvisanand85",
-      "hdfc_conversations"
-    ];
-    for (const k of keysToTry) {
-      const d = localStorage.getItem(k);
-      if (d) {
-        data = d;
-        try { localStorage.setItem(key, d); } catch (_) {}
-        break;
-      }
-    }
-  }
 
   try { return JSON.parse(data || "[]"); }
   catch { return []; }
