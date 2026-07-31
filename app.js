@@ -1296,11 +1296,15 @@ async function submitUpdatePassword() {
 
 function updateSidebarUser() {
   const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
+  if (!u || (!u.empId && !u.name && !u.email)) {
+    showLogin();
+    return;
+  }
   const isCustomer = isCustomerAccount(u);
-  const empId = u.empId || (isCustomer ? "Customer" : "HDFC-AI-101");
-  const name = u.name || (isCustomer ? "Customer User" : "Abhi");
-  const role = isCustomer ? "Customer Account" : (u.role || "Lead AI Engineer");
-  const initial = (name || "C")[0].toUpperCase();
+  const empId = u.empId || (isCustomer ? "Customer" : "Guest");
+  const name = u.name || (isCustomer ? "Customer User" : (empId || "Guest User"));
+  const role = isCustomer ? "Customer Account" : (u.role || "Officer");
+  const initial = (name || "G")[0].toUpperCase();
   const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
 
   if (isCustomer) {
@@ -1322,8 +1326,8 @@ function updateSidebarUser() {
 
 async function logUserAction(action, details) {
   const u = JSON.parse(sessionStorage.getItem(USER_KEY) || "{}");
-  const empId = u.empId || "HDFC-AI-101";
-  const userName = u.name || "Abhi";
+  const empId = u.empId || "Guest";
+  const userName = u.name || "Guest User";
   try {
     await api("/audit-logs", {
       method: "POST",
