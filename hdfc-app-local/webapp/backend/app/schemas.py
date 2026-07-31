@@ -146,6 +146,7 @@ class EmployeeVerifyRequest(BaseModel):
 class EmployeeLoginRequest(BaseModel):
     username_or_id: str
     password: str
+    account_role: Optional[str] = "employee"
 
 
 class TempLoginRequest(BaseModel):

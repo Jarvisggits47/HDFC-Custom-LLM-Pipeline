@@ -1453,13 +1453,14 @@ if (loginForm) {
         return;
       }
       try {
+        const reqRole = document.getElementById("login-account-role")?.value || _currentAuthRole || "employee";
         const emp = await api("/auth/login", {
           method: "POST",
-          body: JSON.stringify({ username_or_id: usernameInp, password: passwordInp })
+          body: JSON.stringify({ username_or_id: usernameInp, password: passwordInp, account_role: reqRole })
         });
 
-        const isEmp = (emp.employee_id || "").toUpperCase().startsWith("HDFC-") || emp.role === "Lead AI Engineer" || emp.role === "AI Engineer";
-        const accountRole = isEmp ? "employee" : (document.getElementById("login-account-role")?.value || _currentAuthRole || "employee");
+        const isEmp = emp.role !== "user" && !emp.employee_id.startsWith("CUST-");
+        const accountRole = isEmp ? "employee" : "user";
         const user = { empId: emp.employee_id, name: emp.full_name, role: emp.role, account_role: accountRole, email: emp.email, backup_code: emp.backup_code, loginTime: Date.now() };
         sessionStorage.setItem(USER_KEY, JSON.stringify(user));
         saveLocalAccount({ employee_id: emp.employee_id, full_name: emp.full_name, email: emp.email, password: passwordInp, backup_code: emp.backup_code });
@@ -1471,29 +1472,6 @@ if (loginForm) {
         logUserAction("USER_LOGIN", `${emp.full_name} (${emp.employee_id}) signed in`);
         showToast(`Welcome back, ${emp.full_name} (${emp.employee_id}).`, "ok");
       } catch (err) {
-        console.warn("Backend login API error, checking local registered store:", err);
-        const localAcc = findLocalAccount(usernameInp);
-        if (localAcc && (!passwordInp || localAcc.password === passwordInp || !localAcc.password)) {
-          const isEmp = (localAcc.employee_id || "").toUpperCase().startsWith("HDFC-") || localAcc.role === "Lead AI Engineer" || localAcc.role === "AI Engineer";
-          const accountRole = isEmp ? "employee" : (document.getElementById("login-account-role")?.value || _currentAuthRole || "employee");
-          const user = {
-            empId: localAcc.employee_id || usernameInp,
-            name: localAcc.full_name || localAcc.name || "Customer User",
-            role: isEmp ? (localAcc.role || "Lead AI Engineer") : "Customer User",
-            account_role: accountRole,
-            email: localAcc.email || usernameInp,
-            backup_code: localAcc.backup_code,
-            loginTime: Date.now()
-          };
-          sessionStorage.setItem(USER_KEY, JSON.stringify(user));
-          resetUserSession();
-          showApp();
-          updateSidebarUser();
-          bootApp(true);
-          logUserAction("USER_LOGIN", `${user.name} (${user.empId}) signed in`);
-          showToast(`Welcome back, ${user.name} (${user.empId}).`, "ok");
-          return;
-        }
         showToast(`❌ Sign In Failed: ${err.message}`, "bad");
       }
     }

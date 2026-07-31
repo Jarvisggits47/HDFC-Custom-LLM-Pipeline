@@ -1008,6 +1008,7 @@ def terminate_session(request: Request, session_id: str, db: Session = Depends(g
 def login_employee(payload: schemas.EmployeeLoginRequest, db: Session = Depends(get_db)):
     raw = payload.username_or_id.strip()
     raw_upper = raw.upper()
+    req_role = (payload.account_role or "employee").lower().strip()
 
     # 1. Direct match on employee_id (case insensitive) or email (case insensitive)
     emp = db.query(models.Employee).filter(
@@ -1039,6 +1040,13 @@ def login_employee(payload: schemas.EmployeeLoginRequest, db: Session = Depends(
     # Validate password against PostgreSQL database record
     if emp.password and emp.password != payload.password:
         raise HTTPException(401, "Sign In Failed: Incorrect password.")
+
+    # Strict Access Role Enforcement
+    is_cust_acc = (emp.role == "user") or (emp.employee_id.startswith("CUST-"))
+    if req_role in ("user", "customer") and not is_cust_acc:
+        raise HTTPException(401, f"Access Denied: Account '{emp.employee_id}' is an Admin/Employee account. Please switch to the Employee / Admin Sign In panel.")
+    if req_role in ("employee", "admin") and is_cust_acc:
+        raise HTTPException(401, f"Access Denied: Account '{emp.employee_id}' is a Customer account. Please switch to the Customer Sign In panel.")
 
     session_token = f"sess-{uuid.uuid4().hex}"
     sess = models.UserSession(
