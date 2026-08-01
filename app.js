@@ -1396,6 +1396,22 @@ if (loginForm) {
       const finalRole = isCustomer ? "user" : roleSel;
       const backupCode = `SEC-${Math.floor(100000 + Math.random() * 900000)}`;
 
+      // Corporate Directory Whitelist Guard for Employee/Admin registrations
+      if (!isCustomer) {
+        const ALLOWED_EMPLOYEE_PREFIXES = ["HDFC-AI-", "HDFC-GOV-", "HDFC-SEC-", "HDFC-RISK-", "HDFC-AUDIT-", "HDFC-FIN-", "HDFC-LEAD-", "HDFC-ENG-"];
+        let normId = finalEmpId.trim().toUpperCase();
+        if (!normId.startsWith("HDFC-")) {
+          const parts = normId.replace("-", " ").split(" ");
+          if (parts.length === 1 && /^\d+$/.test(parts[0])) normId = `HDFC-AI-${parts[0]}`;
+          else if (parts.length === 1) normId = `HDFC-${parts[0]}`;
+        }
+        const isWhitelisted = ALLOWED_EMPLOYEE_PREFIXES.some(p => normId.startsWith(p));
+        if (!isWhitelisted) {
+          showToast(`❌ Registration Failed: Employee ID '${finalEmpId}' is not recognized in the HDFC Corporate Directory. Allowed divisions: HDFC-AI, HDFC-GOV, HDFC-SEC, HDFC-RISK, HDFC-AUDIT, HDFC-FIN.`, "bad");
+          return;
+        }
+      }
+
       // Guard: Check if Employee ID or Email is already registered locally
       const existingLocally = findLocalAccount(finalEmpId) || findLocalAccount(usernameInp);
       if (existingLocally) {
@@ -1416,19 +1432,8 @@ if (loginForm) {
           })
         });
       } catch (err) {
-        if (err.message && (err.message.includes("already registered") || err.message.includes("400"))) {
-          showToast(`❌ Registration Failed: ${err.message}`, "bad");
-          return;
-        }
-        console.warn("Backend registration API offline or sleeping, completing registration locally:", err);
-        emp = {
-          employee_id: finalEmpId,
-          full_name: fullNameInp,
-          email: usernameInp,
-          role: finalRole,
-          password: passwordInp,
-          backup_code: backupCode
-        };
+        showToast(`❌ Registration Failed: ${err.message || 'Registration rejected.'}`, "bad");
+        return;
       }
 
       if (!emp || !emp.employee_id) return;
