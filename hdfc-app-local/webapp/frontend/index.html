@@ -340,6 +340,10 @@
                     <label class="field-label">Target Dataset</label>
                     <select id="upload-dataset-select"></select>
                   </div>
+                  <div class="field-group">
+                    <label class="field-label">Custom Assistant Name (Optional)</label>
+                    <input id="upload-assistant-name" placeholder="e.g. Loan AI Assistant (auto-inferred from PDF if empty)">
+                  </div>
 
                   <label class="dropzone" id="dropzone" for="pdf-file-input">
                     <i data-lucide="file-up"></i>
@@ -1018,6 +1022,37 @@
     <div class="modal-foot" id="prof-modal-foot">
       <button type="button" class="btn-secondary" onclick="closePasswordModal()">Cancel</button>
       <button type="button" id="prof-update-pass-btn" class="btn-primary" onclick="submitUpdatePassword()"><i data-lucide="check"></i> Update Password</button>
+    </div>
+  </div>
+</div>
+
+<!-- Assistant Verification Modal -->
+<div id="asst-verify-modal" class="modal-backdrop" style="display:none">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-head">
+      <div class="modal-title"><i data-lucide="shield-check" style="color:var(--blue)"></i> Confirm Model Assistant Identity</div>
+      <button class="modal-close" onclick="closeAsstVerifyModal()">&times;</button>
+    </div>
+    <div class="modal-body" style="gap:16px">
+      <div class="alert-banner info" style="font-size:12.5px;line-height:1.4">
+        <i data-lucide="info"></i>
+        <div><b>Double Verification Required:</b> Please confirm your AI Assistant Name and check that the document content corresponds to this target model.</div>
+      </div>
+      <div class="item-card edge-ok" style="padding:14px">
+        <div style="font-size:12px;color:var(--text-muted);font-weight:600;margin-bottom:4px">STEP 1: ASSISTANT IDENTITY &amp; VERSION</div>
+        <div id="verify-asst-display" style="font-size:15px;font-weight:700;color:var(--text-primary)">Loan AI Assistant V8</div>
+        <div id="verify-asst-sub" style="font-size:11.5px;color:var(--text-muted);margin-top:2px">Version Tag: banking-llm-v8</div>
+      </div>
+      <div class="item-card" style="padding:14px;background:var(--bg-card-sub)">
+        <div style="font-size:12px;color:var(--text-muted);font-weight:600;margin-bottom:4px">STEP 2: DOCUMENT REFERENCE VERIFICATION</div>
+        <div style="font-size:12.5px;line-height:1.5;color:var(--text-primary)" id="verify-asst-msg">
+          Please make sure that document <b id="verify-doc-name">HDFC-Loan-Policy.pdf</b> refers to your provided Assistant Name (<b id="verify-asst-bold">Loan AI Assistant</b>).
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn-secondary" onclick="closeAsstVerifyModal()">Edit Name</button>
+      <button type="button" id="confirm-asst-build-btn" class="btn-primary"><i data-lucide="check-circle-2"></i> Confirm &amp; Build Model</button>
     </div>
   </div>
 </div>

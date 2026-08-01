@@ -1102,7 +1102,7 @@ def register_employee(payload: schemas.EmployeeRegisterRequest, db: Session = De
     # Corporate Directory Whitelist Check for Employee/Admin registrations
     if payload.role != "user" and not raw_id.startswith("CUST-"):
         if not any(raw_id.startswith(p) for p in ALLOWED_EMPLOYEE_PREFIXES):
-            raise HTTPException(400, f"Registration Failed: Employee ID '{raw_id}' is not recognized in the HDFC Corporate Directory. Allowed divisions: HDFC-AI, HDFC-GOV, HDFC-SEC, HDFC-RISK, HDFC-AUDIT, HDFC-FIN.")
+            raise HTTPException(400, f"Registration Failed: Employee ID '**{raw_id}**' is not recognized in the HDFC Corporate Directory. Please check your credentials or contact IT Administration.")
 
     backup_code = f"SEC-{random.randint(100000, 999999)}"
     emp = db.query(models.Employee).filter(

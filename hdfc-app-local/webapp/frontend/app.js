@@ -1407,7 +1407,7 @@ if (loginForm) {
         }
         const isWhitelisted = ALLOWED_EMPLOYEE_PREFIXES.some(p => normId.startsWith(p));
         if (!isWhitelisted) {
-          showToast(`❌ Registration Failed: Employee ID '${finalEmpId}' is not recognized in the HDFC Corporate Directory. Allowed divisions: HDFC-AI, HDFC-GOV, HDFC-SEC, HDFC-RISK, HDFC-AUDIT, HDFC-FIN.`, "bad");
+          showToast(`❌ Registration Failed: Employee ID '**${finalEmpId}**' is not recognized in the HDFC Corporate Directory. Please check your credentials or contact IT Administration.`, "bad");
           return;
         }
       }
@@ -2007,36 +2007,84 @@ function finishProcessStepper() {
 }
 
 // PDF Upload
-document.getElementById("upload-pdf-btn").addEventListener("click", async () => {
+window.closeAsstVerifyModal = function() {
+  const modal = document.getElementById("asst-verify-modal");
+  if (modal) modal.style.display = "none";
+};
+
+let _pendingUploadAction = null;
+
+function triggerUploadWithVerification(docFileName, performUploadFn) {
+  const customNameInput = document.getElementById("upload-assistant-name");
+  let rawName = customNameInput ? customNameInput.value.trim() : "";
+  if (!rawName) {
+    let cleanDoc = docFileName.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
+    cleanDoc = cleanDoc.replace(/\b(policy|hdfc|document|v\d+)\b/gi, "").trim();
+    rawName = cleanDoc ? `${cleanDoc.charAt(0).toUpperCase() + cleanDoc.slice(1)} Assistant` : "HDFC Banking Assistant";
+  }
+
+  const currentVerNum = Math.max(1, (state.deployments?.length || 0) + (state.registry?.length || 0) + 1);
+  const versionTag = `v${currentVerNum}`;
+  const fullAssistantName = `${rawName} V${currentVerNum}`;
+
+  document.getElementById("verify-asst-display").textContent = fullAssistantName;
+  document.getElementById("verify-asst-sub").textContent = `Version Tag: banking-llm-${versionTag}`;
+  document.getElementById("verify-doc-name").textContent = docFileName;
+  document.getElementById("verify-asst-bold").textContent = rawName;
+
+  _pendingUploadAction = () => performUploadFn(rawName, fullAssistantName);
+  const modal = document.getElementById("asst-verify-modal");
+  if (modal) {
+    modal.style.display = "flex";
+    lucide.createIcons({ nodes: [modal] });
+  } else {
+    performUploadFn(rawName, fullAssistantName);
+  }
+}
+
+document.getElementById("confirm-asst-build-btn")?.addEventListener("click", () => {
+  closeAsstVerifyModal();
+  if (_pendingUploadAction) {
+    _pendingUploadAction();
+    _pendingUploadAction = null;
+  }
+});
+
+document.getElementById("upload-pdf-btn").addEventListener("click", () => {
   const dsId = document.getElementById("upload-dataset-select").value;
   const fileInput = document.getElementById("pdf-file-input");
-  const resultBox = document.getElementById("upload-result");
   if (!dsId) return showToast("Select a dataset first.", "warn");
   if (!fileInput.files.length) return showToast("Choose a PDF or DOCX file first.", "warn");
-  const fd = new FormData();
-  fd.append("file", fileInput.files[0]);
-  resultBox.textContent = "";
-  runProcessStepper();
-  try {
-    const res = await fetch(`${API}/datasets/${dsId}/upload-pdf`, { method: "POST", body: fd });
-    if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.detail || res.statusText); }
-    const data = await res.json();
-    finishProcessStepper();
-    const dupNote = data.duplicate_chunks_skipped ? ` · ${data.duplicate_chunks_skipped} duplicate chunks skipped` : "";
-    const piiNote = data.pii_redacted ? " (PII found and redacted)" : "";
-    resultBox.innerHTML = `<div style="padding:10px;border-radius:6px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.3);font-size:11.5px;color:var(--ok);font-weight:600"><i data-lucide="check-circle-2" style="width:14px;height:14px;vertical-align:-2px;margin-right:4px"></i> Indexed ${safe(data.filename, "file")}: ${data.chunks_created ?? 0} chunks created${dupNote}${piiNote}.</div>`;
-    lucide.createIcons({ nodes: [resultBox] });
-    fileInput.value = "";
-    document.getElementById("dropzone-file").textContent = "";
-    showToast(`${data.chunks_created ?? 0} chunks indexed.`, "ok");
-    refreshAll();
-  } catch (err) {
-    clearInterval(_procTimer);
-    document.getElementById("process-stepper").style.display = "none";
-    resultBox.innerHTML = `<div style="padding:8px 10px;border-radius:6px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);font-size:11.5px;color:var(--accent)"><i data-lucide="x-circle" style="width:13px;height:13px;vertical-align:-1px"></i> Upload failed: ${esc(err.message)}</div>`;
-    lucide.createIcons({ nodes: [resultBox] });
-    showToast(err.message, "bad");
-  }
+  const fileName = fileInput.files[0].name;
+
+  triggerUploadWithVerification(fileName, async (rawName, fullAssistantName) => {
+    const fd = new FormData();
+    fd.append("file", fileInput.files[0]);
+    if (rawName) fd.append("assistant_name", fullAssistantName);
+    const resultBox = document.getElementById("upload-result");
+    resultBox.textContent = "";
+    runProcessStepper();
+    try {
+      const res = await fetch(`${API}/datasets/${dsId}/upload-pdf`, { method: "POST", body: fd });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.detail || res.statusText); }
+      const data = await res.json();
+      finishProcessStepper();
+      const dupNote = data.duplicate_chunks_skipped ? ` · ${data.duplicate_chunks_skipped} duplicate chunks skipped` : "";
+      const piiNote = data.pii_redacted ? " (PII found and redacted)" : "";
+      resultBox.innerHTML = `<div style="padding:10px;border-radius:6px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.3);font-size:11.5px;color:var(--ok);font-weight:600"><i data-lucide="check-circle-2" style="width:14px;height:14px;vertical-align:-2px;margin-right:4px"></i> Model '${esc(fullAssistantName)}' built &amp; indexed ${safe(data.filename, "file")}: ${data.chunks_created ?? 0} chunks created${dupNote}${piiNote}.</div>`;
+      lucide.createIcons({ nodes: [resultBox] });
+      fileInput.value = "";
+      document.getElementById("dropzone-file").textContent = "";
+      showToast(`Model '${fullAssistantName}' created with ${data.chunks_created ?? 0} chunks.`, "ok");
+      refreshAll();
+    } catch (err) {
+      clearInterval(_procTimer);
+      document.getElementById("process-stepper").style.display = "none";
+      resultBox.innerHTML = `<div style="padding:8px 10px;border-radius:6px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);font-size:11.5px;color:var(--accent)"><i data-lucide="x-circle" style="width:13px;height:13px;vertical-align:-1px"></i> Upload failed: ${esc(err.message)}</div>`;
+      lucide.createIcons({ nodes: [resultBox] });
+      showToast(err.message, "bad");
+    }
+  });
 });
 
 // Text Upload (backend expects Form, not JSON)
