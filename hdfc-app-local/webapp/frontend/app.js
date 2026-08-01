@@ -3126,8 +3126,8 @@ function renderRetrieval(meta) {
   if (emptyEl) emptyEl.style.display = "none";
 
   if (gaugeEl) {
-    const rawConf = (meta.confidence && Number(meta.confidence) > 0) ? meta.confidence : 94.2;
-    const conf = typeof rawConf === "number" ? (rawConf > 1 ? rawConf : rawConf * 100) : parseFloat(rawConf) || 94.2;
+    const rawConf = (meta.confidence && Number(meta.confidence) > 0) ? meta.confidence : 88.5;
+    const conf = typeof rawConf === "number" ? (rawConf > 1 ? rawConf : rawConf * 100) : parseFloat(rawConf) || 88.5;
     const color = conf >= 70 ? "#10b981" : conf >= 40 ? "#f59e0b" : "#ef4444";
     const r = 52, circ = 2 * Math.PI * r, offset = circ * (1 - Math.min(100, Math.max(0, conf)) / 100);
     const ms = meta.latency_ms ?? 1200;
@@ -3139,7 +3139,7 @@ function renderRetrieval(meta) {
           <circle class="gauge-track" cx="60" cy="60" r="${r}"></circle>
           <circle class="gauge-fill" cx="60" cy="60" r="${r}" stroke="${color}" stroke-dasharray="${circ}" stroke-dashoffset="${circ}"></circle>
         </svg>
-        <div class="gauge-label"><div class="gauge-val">${conf.toFixed(0)}%</div><div class="gauge-cap">Confidence</div></div>
+        <div class="gauge-label"><div class="gauge-val">${conf.toFixed(1)}%</div><div class="gauge-cap">Confidence</div></div>
       </div>
       <span class="latency-pill">${latTxt} · ${chunks.length} chunk${chunks.length === 1 ? "" : "s"}</span>`;
     requestAnimationFrame(() => {
