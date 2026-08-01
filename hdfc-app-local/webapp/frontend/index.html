@@ -340,9 +340,15 @@
                     <label class="field-label">Target Dataset</label>
                     <select id="upload-dataset-select"></select>
                   </div>
-                  <div class="field-group">
-                    <label class="field-label">Custom Assistant Name (Optional)</label>
-                    <input id="upload-assistant-name" placeholder="e.g. Loan AI Assistant (auto-inferred from PDF if empty)">
+                  <div class="field-group" style="background:var(--bg-card-sub);border:1px solid var(--blue-glow);border-radius:8px;padding:12px;margin-bottom:14px">
+                    <label class="field-label" style="display:flex;align-items:center;justify-content:space-between;color:var(--text-primary);font-weight:700;font-size:12.5px;margin-bottom:6px">
+                      <span><i data-lucide="bot" style="width:14px;height:14px;color:var(--blue);vertical-align:-2px;margin-right:5px"></i> Target AI Assistant Name</span>
+                      <span style="font-size:10px;font-weight:700;background:rgba(37,99,235,0.18);color:var(--blue);padding:2px 8px;border-radius:12px;border:1px solid rgba(37,99,235,0.3)">MODEL IDENTITY</span>
+                    </label>
+                    <input id="upload-assistant-name" style="background:var(--bg-input);border:1px solid var(--border-light);border-radius:6px;padding:9px 12px;font-size:13px;color:var(--text-primary);width:100%;font-weight:600" placeholder="e.g. Loan AI Assistant (auto-derived from PDF if left empty)">
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:5px;display:flex;align-items:center;gap:4px">
+                      <i data-lucide="sparkles" style="width:12px;height:12px;color:var(--blue)"></i> Name used for Assistant dropdown &amp; auto-appended version tag (e.g. Loan AI Assistant V8).
+                    </div>
                   </div>
 
                   <label class="dropzone" id="dropzone" for="pdf-file-input">
