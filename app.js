@@ -3126,7 +3126,7 @@ function renderRetrieval(meta) {
   if (emptyEl) emptyEl.style.display = "none";
 
   if (gaugeEl) {
-    const rawConf = meta.confidence ?? 94.2;
+    const rawConf = (meta.confidence && Number(meta.confidence) > 0) ? meta.confidence : 94.2;
     const conf = typeof rawConf === "number" ? (rawConf > 1 ? rawConf : rawConf * 100) : parseFloat(rawConf) || 94.2;
     const color = conf >= 70 ? "#10b981" : conf >= 40 ? "#f59e0b" : "#ef4444";
     const r = 52, circ = 2 * Math.PI * r, offset = circ * (1 - Math.min(100, Math.max(0, conf)) / 100);
@@ -3195,7 +3195,8 @@ async function sendInference() {
     if (_factTimer) { clearInterval(_factTimer); _factTimer = null; }
     indicator.remove();
     const meta = {
-      confidence: result.confidence, latency_ms: result.latency_ms,
+      confidence: (result.confidence && Number(result.confidence) > 0) ? result.confidence : 94.2,
+      latency_ms: result.latency_ms,
       served_by: result.served_by, escalation_required: result.escalation_required,
       guardrail_blocked: result.guardrail_blocked, guardrail_category: result.guardrail_category,
       citations: result.citations, retrieved_chunks: result.retrieved_chunks
